@@ -1,0 +1,215 @@
+﻿@using Nop.Web.Framework.Models.DataTables
+@using VIU.Plugin.SolrSearch.Areas.Admin.Models
+@model VIU.Plugin.SolrSearch.Areas.Admin.Models.ViuSolrSearchSettingsModel
+@{
+    Layout = "_AdminLayout";
+
+    Html.SetActiveMenuItemSystemName("VIU.GeneralSettings");
+    
+    
+    var searchModel = new AddProductsToHeroProductsSearchModel();
+    searchModel.SetGridPageSize(50, "50,100");
+}
+
+@await Component.InvokeAsync("StoreScopeConfiguration")
+
+<form method="post" id="hero-products-form">
+    <nop-antiforgery-token />
+    <div class="content-header clearfix">
+        <h1 class="pull-left">
+            @T("VIU.Plugin.SolrSearch.Admin.Setting.Title")
+        </h1>
+        <div class="pull-right">
+            <button type="submit" name="save" class="btn bg-blue">
+                <i class="fa fa-floppy-o"></i>
+                @T("Admin.Common.Save")
+            </button>
+        </div>
+    </div>
+    <div class="content">
+        <div class="form-horizontal">
+            <div class="panel-group">
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <div class="col-md-3">
+                                <nop-label asp-for="AllowEmptySearchQuery" />
+                            </div>
+                            <div class="col-md-9">
+                                <nop-editor asp-for="AllowEmptySearchQuery" />
+                                <span asp-validation-for="AllowEmptySearchQuery"></span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-md-3">
+                                <nop-label asp-for="DefaultLanguage" />
+                            </div>
+                            <div class="col-md-9">
+                                <nop-editor asp-for="DefaultLanguage" />
+                                <span asp-validation-for="DefaultLanguage"></span>
+                            </div>
+                        </div>
+                        <hr />
+                        <div class="form-group">
+                            <div class="col-md-3">
+                                <nop-label asp-for="SelectedFilterableSpecificationAttributeIds" />
+                            </div>
+                            <div class="col-md-9">
+                                <div class="input-group input-group-required">
+                                    <nop-select asp-for="SelectedFilterableSpecificationAttributeIds" asp-items="Model.AvailableFilterableSpecificationAttributes" asp-multiple="true" />
+                                    <div class="input-group-btn">
+                                        <nop-required />
+                                    </div>
+                                </div>
+                                <script>
+                                    $(document).ready(function() {
+                                        var customerRolesIdsInput = $('#@Html.IdFor(model => model.SelectedFilterableSpecificationAttributeIds)').data("kendoMultiSelect");
+                                        customerRolesIdsInput.setOptions({
+                                            customerRolesIdsInput: false,
+                                            filter: "contains"
+                                        });
+
+                                        @if (Model.AvailableFilterableSpecificationAttributes.Count == 0)
+                                        {
+                                            <text>
+                                                customerRolesIdsInput.setOptions({
+                                                    enable: false,
+                                                    placeholder: '@T("VIU.Plugin.SolrSearch.Admin.Setting.SpecificationAttributes.NoAttributes")'
+                                                });
+                                                customerRolesIdsInput._placeholder();
+                                                customerRolesIdsInput._enable();
+                                            </text>
+                                        }
+                                    });
+                                </script>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-md-3">
+                                <nop-label asp-for="IncludeCategoriesInFilter" />
+                            </div>
+                            <div class="col-md-9">
+                                <nop-editor asp-for="IncludeCategoriesInFilter" />
+                                <span asp-validation-for="IncludeCategoriesInFilter"></span>
+                            </div>
+                        </div>
+                        <hr />
+                        <div class="form-group">
+                            <div class="col-md-3">
+                                <nop-label asp-for="HeroProducts" />
+                            </div>
+                            <div class="col-md-9">
+                                @await Html.PartialAsync("Table", new DataTablesModel
+                                {
+                                    Name = "products-grid",
+                                    UrlRead = new DataUrl("ProductList", "ViuSolrSearchSettings"),
+                                    UrlDelete = new DataUrl("ProductDelete", "ViuSolrSearchSettings"),
+                                    BindColumnNameActionDelete = nameof(HeroProductModel.ProductId),
+                                    Length = searchModel.PageSize,
+                                    LengthMenu = searchModel.AvailablePageSizes,
+                                    ColumnCollection = new List<ColumnProperty>
+                                    {
+                                        new ColumnProperty(nameof(HeroProductModel.ProductName))
+                                        {
+                                            Title = T("VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.Product").Text
+                                        },
+                                        new ColumnProperty(nameof(HeroProductModel.DisplayOrder))
+                                        {
+                                            Title = T("VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.DisplayOrder").Text,
+                                            Width = "100",
+                                            ClassName =  NopColumnClassDefaults.CenterAll
+                                        },
+                                        new ColumnProperty(nameof(HeroProductModel.ProductId))
+                                        {
+                                            Title = "",
+                                            ClassName =  NopColumnClassDefaults.Button,
+                                            Render = new RenderButtonCustom(NopButtonClassDefaults.Default, T("VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.MoveDown").Text)
+                                            {
+                                                OnClickFunctionName = "moveHeroProductDown"
+                                            }
+                                        },
+                                        new ColumnProperty(nameof(HeroProductModel.ProductId))
+                                        {
+                                            Title = "",
+                                            ClassName =  NopColumnClassDefaults.Button,
+                                            Render = new RenderButtonCustom(NopButtonClassDefaults.Default, T("VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.MoveUp").Text)
+                                            {
+                                                OnClickFunctionName = "moveHeroProductUp"
+                                            }
+                                        },
+                                        new ColumnProperty(nameof(HeroProductModel.ProductId))
+                                        {
+                                            Title = T("Admin.Common.View").Text,
+                                            Width = "100",
+                                            ClassName =  NopColumnClassDefaults.Button,
+                                            Render = new RenderButtonView(new DataUrl("~/Admin/Product/Edit/"))
+                                        },
+                                        new ColumnProperty(nameof(HeroProductModel.ProductId))
+                                        {
+                                            Title = T("Admin.Common.Delete").Text,
+                                            Width = "100",
+                                            Render = new RenderButtonRemove(T("Admin.Common.Delete").Text),
+                                            ClassName =  NopColumnClassDefaults.Button
+                                        }
+                                    }
+                                })
+                                <button type="submit" id="btnAddNewProduct" onclick="javascript:OpenWindow('@(Url.Action("ProductAddPopup", "ViuSolrSearchSettings", new { btnId = "btnRefreshProducts", formId = "hero-products-form" }))', 800, 800, true); return false;" class="btn btn-primary">
+                                    @T("VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.AddNew")
+                                </button>
+                                <input type="submit" id="btnRefreshProducts" style="display: none" />
+                                <script>
+                                    $(document).ready(function() {
+                                        $('#btnRefreshProducts').click(function() {
+                                            //refresh grid
+                                            updateTable('#products-grid');
+                                            //return false to don't reload a page
+                                            return false;
+                                        });
+                                    });
+
+                                    function moveHeroProductUp(id) {
+                                        var postData = {
+                                            id: id
+                                        };
+                                        addAntiForgeryToken(postData);
+                                        $.ajax({
+                                            cache: false,
+                                            type: "POST",
+                                            url: "@Url.Action("MoveHeroProductUp", "ViuSolrSearchSettings")",
+                                            data: postData,
+                                            success: function (data, textStatus, jqXHR) {
+                                                updateTable('#products-grid');
+                                            },
+                                            error: function (jqXHR, textStatus, errorThrown) {
+                                                $("#currencyAlert").click();
+                                            }
+                                        });
+                                    }
+
+                                    function moveHeroProductDown(id) {
+                                        var postData = {
+                                            id: id
+                                        };
+                                        addAntiForgeryToken(postData);
+                                        $.ajax({
+                                            cache: false,
+                                            type: "POST",
+                                            url: "@Url.Action("MoveHeroProductDown", "ViuSolrSearchSettings")",
+                                            data: postData,
+                                            success: function (data, textStatus, jqXHR) {
+                                                updateTable('#products-grid');
+                                            },
+                                            error: function (jqXHR, textStatus, errorThrown) {
+                                                $("#currencyAlert").click();
+                                            }
+                                        });
+                                    }
+                                </script>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

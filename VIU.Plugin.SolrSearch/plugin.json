@@ -1,0 +1,11 @@
+﻿{
+  "Group": "VIU",
+  "FriendlyName": "VIU Solr Search",
+  "SystemName": "SolrSearch",
+  "Version": "1.7",
+  "SupportedVersions": [ "4.40" ],
+  "Author": "Dirk Dresselhaus",
+  "DisplayOrder": 1,
+  "FileName": "VIU.Plugin.SolrSearch.dll",
+  "Description": "Adds Solr Search to NopCommerce "
+}

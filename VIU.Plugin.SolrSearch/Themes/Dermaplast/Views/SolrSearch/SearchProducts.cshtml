@@ -1,0 +1,166 @@
+﻿@model ProductSolrResultModel
+
+@{
+    Layout = "_ColumnsOne";
+    
+    //solid header
+    ViewData.Add(new KeyValuePair<string, object>("IsSolidHeader", true));
+    
+    //page class
+    Html.AppendPageCssClassParts("html-search-page");
+    
+    var hasQ = Model.q != string.Empty;
+
+    //title
+    Html.AddTitleParts(T(hasQ ? "VIU.Plugin.SolrSearch.PageTitle.SearchWithQ" : "VIU.Plugin.SolrSearch.PageTitle.SearchWithoutQ").Text);
+    
+    const int InitiallyLoadedProducts = 4;
+    
+    var blogResults = await Component.InvokeAsync("Widget", new {widgetZone = "kontent_search_blog_results", additionalData = Model.q});
+    var blogResultsEnabled = hasQ && !string.IsNullOrEmpty(blogResults.ToString());
+    
+    // load prices async
+    Html.AppendScriptParts(ResourceLocation.Footer, $"~/Plugins/VIU.Plugin.SolrSearch/Content/JavaScripts/solr-prices-async.js?v3");
+    
+    if(!string.IsNullOrWhiteSpace(Model.Facets)){
+        Html.AppendInlineScriptParts(ResourceLocation.Head, "<meta name=\"robots\" content=\"noindex\" />");
+    }
+}
+
+@if (!hasQ)
+{
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center">
+                    @T("VIU.Plugin.SolrSearch.ResultPage.Title")
+                </h1>
+            </div>
+        </div>
+    </div>
+}
+
+@if (hasQ)
+{
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-12 col-lg-6 offset-lg-3">
+                <form asp-route="ProductSearch" method="get">
+                    <div class="fieldset">
+                        <div class="form-fields">
+                            <div class="inputs inputs-group">
+                                <label asp-for="q"></label>
+                                <input asp-for="q" />
+                                <div class="inputs-group__button">
+                                    <button class="button-1" type="submit">
+                                        @T("VIU.Plugin.SolrSearch.ResultPage.SearchButtonText") <span class="icon-ivf icon-magnify"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@await Component.InvokeAsync("Widget", new
+{
+    widgetZone = PublicWidgetZones.ProductSearchPageBeforeResults
+})
+
+@if (!hasQ)
+{
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-12">
+            
+                @await Html.PartialAsync("_FacetFilter", Model)
+            
+            </div>
+        </div>
+    </div>
+}
+
+<div class="container my-5 pt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center">
+                @if (!string.IsNullOrWhiteSpace(Model.q))
+                {
+                    <div class="section--title">
+                        <h2>@T("VIU.Plugin.SolrSearch.ResultPage.ResultsFor", Model.q)</h2>
+                    </div>
+                }
+                <div class="h4">
+                    @T("VIU.Plugin.SolrSearch.ResultPage.ProductsWithCount", Model.Products.Count)
+                </div>
+            </div>
+
+            @if (!Model.NoResults && Model.Products.Any())
+            {
+                <div class="search-results my-5">
+
+                    @if (!string.IsNullOrEmpty(Model.Warning))
+                    {
+                        <div class="warning">
+                            @Model.Warning
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="product-grid" data-prices-async data-prices-async-url="@(Url.Action("PricesJson", "SolrSearch"))">
+                            @if (hasQ)
+                            {
+                                <div class="item-row loadable-list" data-loadable-items-amount="@InitiallyLoadedProducts">
+                                    @foreach (var product in Model.Products.Take(InitiallyLoadedProducts))
+                                    {
+                                        @await Html.PartialAsync("_ProductBox", product, new ViewDataDictionary(ViewData){ { "LoadableProduct", true } })
+                                    }
+                                    @foreach (var product in Model.Products.Skip(InitiallyLoadedProducts))
+                                    {
+                                        @await Html.PartialAsync("_ProductBox", product, new ViewDataDictionary(ViewData){ { "LoadableProduct", true }, { "LoadableProductHidden", true } })
+                                    }
+                                    @if (Model.Products.Count > InitiallyLoadedProducts)
+                                    {
+                                        <div class="w-100 text-center">
+                                            <button class="button-1 loadable-list__button">
+                                                @T("VIU.Plugin.SolrSearch.ResultPage.ShowMore")
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="item-row">
+                                    @foreach (var product in Model.Products)
+                                    {
+                                        @await Html.PartialAsync("_ProductBox", product)
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <h5 class="text-center">
+                    @T("Search.NoResultsText")                    
+                </h5>
+            }
+            </div>
+        </div>
+    </div>
+
+@if (blogResultsEnabled)
+{
+    @blogResults
+}
+
+@await Component.InvokeAsync("Widget", new
+{
+    widgetZone = PublicWidgetZones.ProductSearchPageAfterResults
+})

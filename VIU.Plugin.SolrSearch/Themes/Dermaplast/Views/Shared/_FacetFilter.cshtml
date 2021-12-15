@@ -1,0 +1,178 @@
+﻿@model ProductSolrResultModel
+
+@if (Model.ProductFacets.Any())
+{
+    var hasQ = Model.q != string.Empty;
+    var hasFilterApplied = !string.IsNullOrWhiteSpace(Model.Facets);
+
+    <div class="filters">
+        <div class="filters__toggler" data-toggle="collapse" data-target="#filter-1"
+             aria-expanded="@(hasFilterApplied ? "true" : "false")" aria-controls="filter-1">
+            <div class="filters__toggler-headline">
+                <span class="filters__slider icon-panton icon-controls"></span>&nbsp;
+                <span>@T("VIU.Plugin.SolrSearch.ResultPage.FilterTitle")</span>&nbsp;
+                @* <span class="filters__bubble">@Model.Products.Count</span>&nbsp; *@
+                <span class="filters__chevron filters__chevron--down icon-ivf icon-chevron-down"></span>
+                <span class="filters__chevron filters__chevron--up icon-ivf icon-chevron-up"></span>
+            </div>
+            @if (hasFilterApplied)
+            {
+                <span onclick="event.stopPropagation();SolrSearch.resetFilter()" class="filters__reset">
+                    <span class="filters__reset-label">@T("VIU.Plugin.SolrSearch.ResultPage.FilterReset")</span>&nbsp;
+                    <span class="filters__reset-icon icon-panton icon-reload"></span>
+                </span>
+            }
+        </div>
+        <div class="container-fluid collapse@(hasFilterApplied ? " show" : "")" id="filter-1">
+            <div class="row no-gutters filters__content">
+                @foreach (var facet in Model.ProductFacets)
+                {
+                    <div class="col-lg-4 col-12 p-4 p-md-5">
+                        <div class="filters__content-label">
+                            @facet.FacetDisplayName
+                        </div>
+                        <div class="filters__content-section">
+                            @foreach (var option in facet.FacetValues)
+                            {
+                                var facetDisabled = option.OptionProductCount <= 0;
+
+                                <label class="filter__label">
+                                    @if (option.FilterActive)
+                                    {
+                                        <button class="filter filter--active" onclick="SolrSearch.filter('@facet.FacetName', '@option.OptionName')">
+                                            @option.OptionDisplayName <span class="filter__icon icon-ivf icon-close"></span>
+                                        </button>
+                                    }
+                                    else if (facetDisabled)
+                                    {
+                                        <button class="filter filter--disabled" disabled="disabled">
+                                            @option.OptionDisplayName
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="filter filter--with-bubble" onclick="SolrSearch.filter('@facet.FacetName', '@option.OptionName')">
+                                            @option.OptionDisplayName <span class="filter__bubble">@option.OptionProductCount</span>
+                                        </button>
+                                    }
+                                </label>
+                            }
+                        </div>
+                    </div>
+                }
+                <div class="col-12 p-4 p-md-5">
+                    <button class="d-lg-none button-1 button--full-width"
+                            data-toggle="collapse"
+                            data-target="#filter-1"
+                            aria-expanded="@(hasFilterApplied ? "true" : "false")"
+                            aria-controls="filter-1">@T("VIU.Plugin.SolrSearch.ResultPage.FilterClose")</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script asp-location="Footer">
+        @{
+            var q = !string.IsNullOrWhiteSpace(Model.q) ? "?q=" + Uri.EscapeDataString(Model.q) : string.Empty;
+        }
+        var SolrSearch = {
+            loading: false,
+            
+            setLoading: function () {
+                this.loading = true;  
+                
+                $('.filter__label .filter').addClass('filter--disabled').prop("disabled",true);
+            },
+                     
+            filter: function (facet, option){
+                
+                if (this.loading) return;
+                
+                this.setLoading();
+    
+                let facets = this.loadFacetsFromQuery();
+                    
+                if (Object.keys(facets).length > 0){
+                    
+                    if (!facets[facet]){
+                        facets[facet] = [];           
+                    }  
+                    
+                    if (facets[facet].includes(option)){
+                        facets[facet] = facets[facet].filter(e => e !== option);
+                        
+                        if (facets[facet].length <= 0){
+                            delete facets[facet];
+                        }
+                    }else{
+                        facets[facet].push(option);   
+                    }
+                        
+                }else{
+                    
+                    facets[facet] = [];             
+                    facets[facet].push(option);
+                    
+                }
+                
+                this.applyFilter(facets);
+            },
+            
+            resetFilter: function () {
+                if (this.loading) return;
+                
+                this.setLoading();
+                
+                const baseUrl = location.protocol + '//' + location.host + location.pathname;
+                const q = decodeURI("@q");
+                
+                window.location.href = baseUrl + q;
+            },
+            
+            loadFacetsFromQuery: function() {
+                let facets = {};            
+                
+                const facetsParam = this.getParameterByName('facets'); 
+                
+                if (!facetsParam || facetsParam.length <= 0) return facets;
+                
+                const facetStrings = facetsParam.split(',');
+                              
+                facetStrings.forEach(function(value) {
+                    const facetName = value.split(':')[0];
+                    facets[facetName] = value.split(':')[1].split('|');
+                });
+                
+                return facets;
+            },
+            
+            applyFilter: function(facets) {
+                const baseUrl = location.protocol + '//' + location.host + location.pathname;
+                const q = decodeURI("@q");
+                
+                if (Object.keys(facets).length <= 0) {
+                    window.location.href = baseUrl + q;
+                }
+                
+                let query = (!q ? "?" : "&") + "facets=";
+                
+                Object.keys(facets).forEach(key => {
+                    query += key + ":" + facets[key].join('|') + ",";
+                });
+                
+                query = query.slice(0, -1);
+                
+                window.location.href = baseUrl + q + query;
+            },
+            
+            getParameterByName: function(name, url = window.location.href) {
+                name = name.replace(/[\[\]]/g, '\\$&');
+                const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+                    results = regex.exec(url);
+                if (!results) return null;
+                if (!results[2]) return '';
+                return decodeURIComponent(results[2].replace(/\+/g, ' '));
+            }
+        }
+    </script>
+}

@@ -1,0 +1,87 @@
+﻿<!-- This content item needs to be implemented in the themes folder -->
+@model ProductSolrResultModel
+
+@{
+    Layout = "_ColumnsTwo";
+
+    //title
+    Html.AddTitleParts(T("PageTitle.Search").Text);
+    //page class
+    Html.AppendPageCssClassParts("html-search-page");
+    
+    // load prices async
+    Html.AppendScriptParts(ResourceLocation.Footer, $"~/Plugins/SolrSearch/Content/JavaScripts/solr-prices-async.js?v3");
+    
+    if(!string.IsNullOrWhiteSpace(Model.Facets)){
+        Html.AppendInlineScriptParts(ResourceLocation.Head, "<meta name=\"robots\" content=\"noindex\" />");
+    }
+}
+
+@section left
+{
+    @await Html.PartialAsync("_FacetFilter", Model)
+}
+
+@await Component.InvokeAsync("Widget", new
+{
+    widgetZone = PublicWidgetZones.ProductSearchPageBeforeResults
+})
+
+@*
+<div class="container my-5">
+    <div class="row">
+        <div class="col-12">
+        
+        @await Html.PartialAsync("_CatalogSelectors", Model.CatalogProductsModel)
+        
+        </div>
+    </div>
+</div>
+*@
+
+<div class="container my-5 pt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title">
+                <h1>@T("VIU.Plugin.SolrSearch.ResultPage.ProductsWithCount", Model.Products.Count, Model.q)</h1>
+            </div>
+
+            @if (!Model.NoResults && Model.Products.Any())
+            {
+                <div class="search-results my-5">
+
+                    @if (!string.IsNullOrEmpty(Model.Warning))
+                    {
+                        <div class="warning">
+                            @Model.Warning
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="product-grid" data-prices-async data-prices-async-url="@(Url.Action("PricesJson", "SolrSearch"))">
+                            <div class="item-grid">
+                                @foreach (var product in Model.Products)
+                                {
+                                    <div class="item-box">
+                                        @await Html.PartialAsync("_ProductBox", product)
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <h5 class="text-center">
+                    @T("Search.NoResultsText")                    
+                </h5>
+            }
+        </div>
+    </div>
+</div>
+
+@await Component.InvokeAsync("Widget", new
+{
+    widgetZone = PublicWidgetZones.ProductSearchPageAfterResults
+})
