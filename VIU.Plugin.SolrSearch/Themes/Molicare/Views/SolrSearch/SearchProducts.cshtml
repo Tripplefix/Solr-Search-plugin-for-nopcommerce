@@ -16,7 +16,7 @@
     const int InitiallyLoadedProducts = 4;
     
     var blogResults = await Component.InvokeAsync("Widget", new {widgetZone = "kontent_search_blog_results", additionalData = Model.q});
-    var blogResultsEnabled = !string.IsNullOrEmpty(blogResults.ToString());
+    var blogResultsEnabled = !string.IsNullOrEmpty(blogResults.ToHtmlString());
     
     // load prices async
     Html.AppendScriptParts(ResourceLocation.Footer, $"~/Plugins/VIU.Plugin.SolrSearch/Content/JavaScripts/solr-prices-async.js?v3");

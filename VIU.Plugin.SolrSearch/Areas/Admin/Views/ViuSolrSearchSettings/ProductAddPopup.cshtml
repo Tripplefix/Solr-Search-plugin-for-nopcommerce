@@ -1,7 +1,5 @@
-﻿@using Nop.Web.Framework.Models.DataTables
-@using Nop.Web.Areas.Admin.Models.Catalog
-@using VIU.Plugin.SolrSearch.Areas.Admin.Models
-@model VIU.Plugin.SolrSearch.Areas.Admin.Models.AddProductsToHeroProductsSearchModel
+﻿@using Nop.Web.Areas.Admin.Models.Catalog
+@model AddProductsToHeroProductsSearchModel
 
 @{
     Layout = "_AdminPopupLayout";
@@ -25,87 +23,88 @@ else
           asp-route-formId="@Context.Request.Query["formId"]">
         <div class="content-header clearfix">
             <h1 class="pull-left">
-                @T("Admin.Promotions.Discounts.AppliedToProducts.AddNew")
+                @T("Admin.Catalog.Products.RelatedProducts.AddNew")
             </h1>
             <div class="pull-right">
                 &nbsp;
             </div>
         </div>
 
-
-        <div class="content">
-            <div class="form-horizontal">
-                <div class="panel-group">
-                    <div class="panel panel-default panel-search panel-popup">
-                        <div class="panel-body">
-                            <div class="row">
-                                <div class="col-sm-6">
-                                    <div class="form-group">
-                                        <div class="col-sm-5">
-                                            <nop-label asp-for="SearchProductName" />
-                                        </div>
-                                        <div class="col-sm-7">
-                                            <nop-editor asp-for="SearchProductName" />
+        <section class="content">
+            <div class="container-fluid">
+                <div class="form-horizontal">
+                    <div class="cards-group">
+                        <div class="card card-default card-search card-popup">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <div class="form-group row">
+                                            <div class="col-sm-5">
+                                                <nop-label asp-for="SearchProductName" />
+                                            </div>
+                                            <div class="col-sm-7">
+                                                <nop-editor asp-for="SearchProductName" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-sm-12">
-                                    <button type="button" id="search-products" class="btn btn-primary btn-search">
-                                        <i class="fa fa-search"></i>
-                                        @T("Admin.Common.Search")
-                                    </button>
+                                <div class="row">
+                                    <div class="col-sm-12">
+                                        <button type="button" id="search-products" class="btn btn-primary btn-search">
+                                            <i class="fas fa-search"></i>
+                                            @T("Admin.Common.Search")
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="panel panel-default">
-                        <div class="panel-body">
-                            @await Html.PartialAsync("Table", new DataTablesModel
-                            {
-                                Name = "products-grid",
-                                UrlRead = new DataUrl("ProductAddPopupList", "ViuSolrSearchSettings", null),
-                                SearchButtonId = "search-products",
-                                Length = Model.PageSize,
-                                LengthMenu = Model.AvailablePageSizes,
-                                Filters = new List<FilterParameter>
+                        <div class="card card-default">
+                            <div class="card-body">
+                                @await Html.PartialAsync("Table", new DataTablesModel
                                 {
-                                    new FilterParameter(nameof(Model.SearchProductName))
-                                },
-                                ColumnCollection = new List<ColumnProperty>
-                                {
-                                    new ColumnProperty(nameof(ProductModel.Id))
+                                    Name = "products-grid",
+                                    UrlRead = new DataUrl("ProductAddPopupList", "ViuSolrSearchSettings", null),
+                                    SearchButtonId = "search-products",
+                                    Length = Model.PageSize,
+                                    LengthMenu = Model.AvailablePageSizes,
+                                    Filters = new List<FilterParameter>
                                     {
-                                        IsMasterCheckBox = true,
-                                        Render = new RenderCheckBox(nameof(AddProductToHeroProductsModel.SelectedProductIds)),
-                                        ClassName =  NopColumnClassDefaults.CenterAll,
-                                        Width = "50"
+                                        new FilterParameter(nameof(Model.SearchProductName))
                                     },
-                                    new ColumnProperty(nameof(ProductModel.Name))
+                                    ColumnCollection = new List<ColumnProperty>
                                     {
-                                        Title = T("Admin.Catalog.Products.Fields.Name").Text
-                                    },
-                                    new ColumnProperty(nameof(ProductModel.Published))
-                                    {
-                                        Title = T("Admin.Catalog.Products.Fields.Published").Text,
-                                        Width = "100",
-                                        ClassName = NopColumnClassDefaults.CenterAll,
-                                        Render = new RenderBoolean()
+                                        new ColumnProperty(nameof(ProductModel.Id))
+                                        {
+                                            IsMasterCheckBox = true,
+                                            Render = new RenderCheckBox(nameof(AddProductToHeroProductsModel.SelectedProductIds)),
+                                            ClassName =  NopColumnClassDefaults.CenterAll,
+                                            Width = "50"
+                                        },
+                                        new ColumnProperty(nameof(ProductModel.Name))
+                                        {
+                                            Title = T("Admin.Catalog.Products.Fields.Name").Text
+                                        },
+                                        new ColumnProperty(nameof(ProductModel.Published))
+                                        {
+                                            Title = T("Admin.Catalog.Products.Fields.Published").Text,
+                                            Width = "100",
+                                            ClassName = NopColumnClassDefaults.CenterAll,
+                                            Render = new RenderBoolean()
+                                        }
                                     }
-                                }
-                            })
-                        </div>
-                        <div class="panel-footer">
-                            <button type="submit" name="save" class="btn bg-blue">
-                                <i class="fa fa-floppy-o"></i>
-                                @T("Admin.Common.Save")
-                            </button>
+                                })
+                            </div>
+                            <div class="card-footer">
+                                <button type="submit" name="save" class="btn btn-primary">
+                                    <i class="far fa-save"></i>
+                                    @T("Admin.Common.Save")
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     </form>
 }

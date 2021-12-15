@@ -16,12 +16,12 @@
     Html.AppendPageCssClassParts("html-search-page");
 
     var blogResults = await Component.InvokeAsync("Widget", new { widgetZone = "kontent_search_blog_results", additionalData = Model.q });
-    var blogResultsEnabled = !string.IsNullOrEmpty(blogResults.ToString());
+    var blogResultsEnabled = !string.IsNullOrEmpty(blogResults.ToHtmlString());
     
     const int InitiallyLoadedProducts = 4;
     
     var assortmentCategoryId = 0;
-    var setting = await settingService.GetSettingAsync("KontentSettings.AssortmentCategoryId");
+    var setting = settingService.GetSetting("KontentSettings.AssortmentCategoryId");
     if (setting?.Value != null)
     {
         int.TryParse(setting.Value, out assortmentCategoryId);
@@ -32,16 +32,15 @@
 }
 
 @functions {
-
-    async Task<string> GetProductBoxType(int productCategoryId, int assortmentCategoryId)
+    string GetProductBoxType(int productCategoryId, int assortmentCategoryId)
     {
-        var assCats = await categoryService.GetChildCategoryIdsAsync(assortmentCategoryId, showHidden: true);
+        var assCats = categoryService.GetChildCategoryIds(assortmentCategoryId, showHidden: true);
 
         var productBoxType = "_ProductBox";
         if (assortmentCategoryId != 0)
         {
-            var categoryIds = (await categoryService
-                .GetProductCategoriesByProductIdAsync(productCategoryId, true))
+            var categoryIds = categoryService
+                .GetProductCategoriesByProductId(productCategoryId, true)
                 .Select(category => category.CategoryId);
 
             if (categoryIds.Intersect(assCats).Any())
@@ -112,11 +111,11 @@
                             <div class="item-row loadable-list" data-loadable-items-amount="@InitiallyLoadedProducts">
                                 @foreach (var product in Model.Products.Take(InitiallyLoadedProducts))
                                 {
-                                    @await Html.PartialAsync(await GetProductBoxType(product.Id, assortmentCategoryId), product, new ViewDataDictionary(ViewData){ { "LoadableProduct", true } })
+                                    @await Html.PartialAsync(GetProductBoxType(product.Id, assortmentCategoryId), product, new ViewDataDictionary(ViewData){ { "LoadableProduct", true } })
                                 }
                                 @foreach (var product in Model.Products.Skip(InitiallyLoadedProducts))
                                 {
-                                    @await Html.PartialAsync(await GetProductBoxType(product.Id, assortmentCategoryId), product, new ViewDataDictionary(ViewData){ { "LoadableProduct", true }, { "LoadableProductHidden", true } })
+                                    @await Html.PartialAsync(GetProductBoxType(product.Id, assortmentCategoryId), product, new ViewDataDictionary(ViewData){ { "LoadableProduct", true }, { "LoadableProductHidden", true } })
                                 }
                                 @if (Model.Products.Count > InitiallyLoadedProducts)
                                 {

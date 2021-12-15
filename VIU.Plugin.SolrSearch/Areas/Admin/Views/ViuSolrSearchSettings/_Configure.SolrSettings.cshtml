@@ -1,0 +1,134 @@
+﻿@model ViuSolrSearchSettingsModel
+
+<div class="card-body">
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="AllowEmptySearchQuery"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="AllowEmptySearchQuery"/>
+            <span asp-validation-for="AllowEmptySearchQuery"></span>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="DefaultLanguage"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="DefaultLanguage"/>
+            <span asp-validation-for="DefaultLanguage"></span>
+        </div>
+    </div>
+    <hr/>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="IncludeSpecificationAttributesInFilter"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="IncludeSpecificationAttributesInFilter"/>
+            <span asp-validation-for="IncludeSpecificationAttributesInFilter"></span>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="SelectedFilterableSpecificationAttributeIds"/>
+        </div>
+        <div class="col-md-9">
+            <div class="input-group-append input-group-required">
+                <div class="input-group">
+                    <nop-select asp-for="SelectedFilterableSpecificationAttributeIds" asp-items="Model.AvailableFilterableSpecificationAttributes" asp-multiple="true"/>
+                </div>
+                <div class="input-group-btn">
+                    <nop-required/>
+                </div>
+            </div>
+            <script>
+                $(document).ready(function() {
+                    var customerRolesIdsInput = $('#@Html.IdFor(model => model.SelectedFilterableSpecificationAttributeIds)').data("kendoMultiSelect");
+                    customerRolesIdsInput.setOptions({
+                        customerRolesIdsInput: false,
+                        filter: "contains",
+                        autoClose: false
+                    });
+
+                    @if (Model.AvailableFilterableSpecificationAttributes.Count == 0)
+                    {
+                        <text>
+                            customerRolesIdsInput.setOptions({
+                                enable: false,
+                                autoClose: false,
+                                placeholder: '@T("VIU.Plugin.SolrSearch.Admin.Settings.SpecificationAttributes.NoAttributes")'
+                            });
+                            customerRolesIdsInput._placeholder();
+                            customerRolesIdsInput._enable();
+                        </text>
+                    }
+                });
+            </script>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="IncludeCategoriesInFilter"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="IncludeCategoriesInFilter"/>
+            <span asp-validation-for="IncludeCategoriesInFilter"></span>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="IncludeManufacturersInFilter"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="IncludeManufacturersInFilter"/>
+            <span asp-validation-for="IncludeManufacturersInFilter"></span>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="HideFacetOptionsWithNoCount"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="HideFacetOptionsWithNoCount"/>
+            <span asp-validation-for="HideFacetOptionsWithNoCount"></span>
+        </div>
+    </div>
+    <hr/>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="MaxReturnedDocuments"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="MaxReturnedDocuments"/>
+            <span asp-validation-for="MaxReturnedDocuments"></span>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="HighlightingEnabled"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="HighlightingEnabled"/>
+            <span asp-validation-for="HighlightingEnabled"></span>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="SpellcheckingEnabled"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="SpellcheckingEnabled"/>
+            <span asp-validation-for="SpellcheckingEnabled"></span>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="SpellcheckingOnlyMorePopular"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="SpellcheckingOnlyMorePopular"/>
+            <span asp-validation-for="SpellcheckingOnlyMorePopular"></span>
+        </div>
+    </div>
+</div>

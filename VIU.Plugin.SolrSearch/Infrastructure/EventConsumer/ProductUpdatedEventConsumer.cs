@@ -3,6 +3,7 @@ using Nop.Core.Domain.Logging;
 using Nop.Core.Events;
 using Nop.Services.Catalog;
 using Nop.Services.Events;
+using Nop.Services.Logging;
 using VIU.Plugin.SolrSearch.Services;
 
 namespace VIU.Plugin.SolrSearch.Infrastructure.EventConsumer
@@ -12,20 +13,22 @@ namespace VIU.Plugin.SolrSearch.Infrastructure.EventConsumer
 	{
 		private readonly IProductIndexingService _productIndexingService;
 		private readonly IProductService _productService;
+		private readonly ICustomerActivityService _customerActivityService;
 
-		public ProductUpdatedEventConsumer(IProductIndexingService productIndexingService, IProductService productService)
+		public ProductUpdatedEventConsumer(IProductIndexingService productIndexingService, IProductService productService, ICustomerActivityService customerActivityService)
 		{
 			_productIndexingService = productIndexingService;
 			_productService = productService;
+			_customerActivityService = customerActivityService;
 		}
 
 		// Instead of the EntityInsertedEvent of the product, we listen to the one on the activity log.
-		// This workaraound is necessary because the former is triggered before the product pictures are updated.
+		// This workaround is necessary because the former is triggered before the product pictures are updated.
 		public async Task HandleEventAsync(EntityInsertedEvent<ActivityLog> eventMessage)
 		{
-			const int addNewProduct = 22;
-			const int editProduct = 103;
-			const int deleteProduct = 62;
+			const string addNewProduct = "AddNewProduct";
+			const string editProduct = "EditProduct";
+			const string deleteProduct = "DeleteProduct";
 			
 			var log = eventMessage.Entity;
 			var productId = log.EntityId ?? 0;
@@ -46,7 +49,9 @@ namespace VIU.Plugin.SolrSearch.Infrastructure.EventConsumer
 				return;
 			}
 
-			switch (log.ActivityLogTypeId)
+			var activityLogType = await _customerActivityService.GetActivityTypeByIdAsync(log.ActivityLogTypeId);
+
+			switch (activityLogType.SystemKeyword)
 			{
 				case addNewProduct:
 				case editProduct:

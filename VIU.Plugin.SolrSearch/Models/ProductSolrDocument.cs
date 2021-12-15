@@ -13,9 +13,7 @@ namespace VIU.Plugin.SolrSearch.Models
         public const string SOLRFIELD_DOUBLEFIELD_EXTENSION = "_d";
         public const string SOLRFIELD_BOOLEANFIELD_EXTENSION = "_b";
 
-        public const string SOLRFIELD_SPECIFICATION_ATTRIBUTE = "attr_";
-        public const string SOLRFIELD_SPECIFICATION_ATTRIBUTE_TITLE = "_title_";
-        public const string SOLRFIELD_SPECIFICATION_ATTRIBUTE_OPTIONS = "_options_";
+        public const string SOLRFIELD_MULITVALUETEXT_EXTENSION = "attr_";
 
         public const string SOLRFIELD_SE_NAME = "sename";
         public const string SOLRFIELD_SKU = "sku";
@@ -24,6 +22,7 @@ namespace VIU.Plugin.SolrSearch.Models
         public const string SOLRFIELD_SHORTDESCRIPTION = "shortdescription";
         public const string SOLRFIELD_FULLDESCRIPTION = "fulldescription";
         public const string SOLRFIELD_ALLCATEGORIES = "allcategories";
+        public const string SOLRFIELD_ALLMANUFACTURERS = "allmanufacturers";
 
         public const string SOLRFIELD_PREFIX_SPECIFICATION_ATTRIBUTES = "SA";
 
@@ -60,8 +59,11 @@ namespace VIU.Plugin.SolrSearch.Models
         [SolrField("disablewishaddtocomparebutton" + SOLRFIELD_BOOLEANFIELD_EXTENSION)]
         public bool DisableAddToCompareListButton { get; set; }
 
-        [SolrField(SOLRFIELD_SPECIFICATION_ATTRIBUTE + SOLRFIELD_ALLCATEGORIES)]
+        [SolrField(SOLRFIELD_MULITVALUETEXT_EXTENSION + SOLRFIELD_ALLCATEGORIES)]
         public List<string> AllCategories { get; set; }
+
+        [SolrField(SOLRFIELD_MULITVALUETEXT_EXTENSION + SOLRFIELD_ALLMANUFACTURERS)]
+        public List<string> AllManufacturers { get; set; }
 
         [SolrField("*")]
         public IDictionary<string, object> OtherFields { get; set; }

@@ -1,14 +1,15 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Net;
 using System.Threading.Tasks;
 using System.Web;
 using Nop.Core;
+using Nop.Core.Domain.Catalog;
 using Nop.Services.Catalog;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
+using Nop.Web.Factories;
 using Nop.Web.Models.Catalog;
 using Nop.Web.Models.Media;
 using VIU.Plugin.SolrSearch.Models;
@@ -29,16 +30,11 @@ namespace VIU.Plugin.SolrSearch.Factories
 		private readonly ISpecificationAttributeService _specificationAttributeService;
 		private readonly ILogger _logger;
 		private readonly ViuSolrSearchSettings _viuSolrSearchSettings;
+		private readonly IManufacturerService _manufacturerService;
+		private readonly IProductModelFactory _productModelFactory;
+		private readonly IProductService _productService;
 
-		public SolrSearchFactory(IProductSearchService productSearchService,
-			IWorkContext workContext,
-			ILocalizationService localizationService,
-			ILanguageService languageService,
-			IStoreContext storeContext,
-			ICategoryService categoryService,
-			ISpecificationAttributeService specificationAttributeService, 
-			ILogger logger,
-			ViuSolrSearchSettings viuSolrSearchSettings)
+		public SolrSearchFactory(IProductSearchService productSearchService, IWorkContext workContext, ILocalizationService localizationService, ILanguageService languageService, IStoreContext storeContext, ICategoryService categoryService, ISpecificationAttributeService specificationAttributeService, ILogger logger, ViuSolrSearchSettings viuSolrSearchSettings, IManufacturerService manufacturerService, IProductModelFactory productModelFactory, IProductService productService)
 		{
 			_productSearchService = productSearchService;
 			_workContext = workContext;
@@ -49,8 +45,11 @@ namespace VIU.Plugin.SolrSearch.Factories
 			_specificationAttributeService = specificationAttributeService;
 			_logger = logger;
 			_viuSolrSearchSettings = viuSolrSearchSettings;
+			_manufacturerService = manufacturerService;
+			_productModelFactory = productModelFactory;
+			_productService = productService;
 		}
-		
+
 		public async Task<ProductSolrResultModel> PrepareSearchModel(ProductSolrResultModel model)
 		{
 			if (model == null)
@@ -78,26 +77,45 @@ namespace VIU.Plugin.SolrSearch.Factories
 				}
 			}
 			
-			//Specification Attributes
-			var specificationAttributes = await (await _specificationAttributeService.GetProductSpecificationAttributesAsync(allowFiltering: true))
-				.SelectAwait(async psa =>
-				{
-					var specAttributeOption =
-						await _specificationAttributeService.GetSpecificationAttributeOptionByIdAsync(
-							psa.SpecificationAttributeOptionId);
-					var specAttribute =
-						await _specificationAttributeService.GetSpecificationAttributeByIdAsync(specAttributeOption
-							.SpecificationAttributeId);
+			//Manufacturers
+			if (_viuSolrSearchSettings.IncludeManufacturersInFilter)
+			{
+				var manufacturers = await _manufacturerService.GetAllManufacturersAsync(storeId: (await _storeContext.GetCurrentStoreAsync()).Id);
 
-					return new
+				if (manufacturers.Any())
+				{
+					availableFacetList.Add(ProductSolrDocument.SOLRFIELD_ALLMANUFACTURERS);
+				}
+			}
+
+			if (_viuSolrSearchSettings.IncludeSpecificationAttributesInFilter)
+			{
+				//Specification Attributes
+				var specificationAttributes = await (await _specificationAttributeService.GetProductSpecificationAttributesAsync(allowFiltering: true))
+					.SelectAwait(async psa =>
 					{
-						id = specAttribute.Id
-					};
-				}).ToListAsync();
-			
-			if (specificationAttributes.Any())
-			{				
-				availableFacetList.AddRange(specificationAttributes.Select(spec => ProductSolrDocument.SOLRFIELD_PREFIX_SPECIFICATION_ATTRIBUTES + spec.id));
+						var specAttributeOption =
+							await _specificationAttributeService.GetSpecificationAttributeOptionByIdAsync(
+								psa.SpecificationAttributeOptionId);
+						var specAttribute =
+							await _specificationAttributeService.GetSpecificationAttributeByIdAsync(specAttributeOption
+								.SpecificationAttributeId);
+
+						return specAttribute.Id;
+					}).ToListAsync();
+
+
+				if (!string.IsNullOrWhiteSpace(_viuSolrSearchSettings.SelectedFilterableSpecificationAttributeIds))
+				{
+					var selectedSaIds = _viuSolrSearchSettings.SelectedFilterableSpecificationAttributeIds.Split(',').Select(int.Parse).ToList();
+
+					specificationAttributes = specificationAttributes.Intersect(selectedSaIds).ToList();
+				}
+
+				if (specificationAttributes.Any())
+				{				
+					availableFacetList.AddRange(specificationAttributes.Select(specId => ProductSolrDocument.SOLRFIELD_PREFIX_SPECIFICATION_ATTRIBUTES + specId));
+				}
 			}
 
 			//Products
@@ -123,24 +141,16 @@ namespace VIU.Plugin.SolrSearch.Factories
 			var searchResult = await _productSearchService.Search(searchTerms, languageKey, facets, availableFacetList);
 
 			//enrich the result: product part
-			var products = searchResult.Select(coreProduct => PrepareProductOverviewModel(coreProduct, languageKey, prepareSpecificationAttributes: true))
+			model.Products = await searchResult.SelectAwait(async coreProduct => await PrepareProductOverviewModel(coreProduct, languageKey))
 				.Where(p => p.Id != 0)
-				.ToList();
-			
-			// default sort by sku
-			products = products.OrderBy(product => product.Sku).ToList();
-			
-			// hero products
-			HandleHeroProducts(products);
-
-			model.Products = products;
+				.ToListAsync();
 
 			//enrich the result: facet part
-			var availableFacets = await searchResult.FacetFields
+			model.ProductFacets = await searchResult.FacetFields
 				.SelectAwait(async coreFacet =>
 				{
 					var (facetKey, facetValues) = coreFacet;
-					var facetName = facetKey.Replace(ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE, string.Empty);
+					var facetName = facetKey.Replace(ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION, string.Empty);
 					
 					return new ProductFacet
 					{
@@ -156,6 +166,11 @@ namespace VIU.Plugin.SolrSearch.Factories
 								if (facetValue == null) return null;
 
 								facetValue.FilterActive = facets != null && GetFilterActive(facets, facetName, optionName: optionName);
+								
+								// move selected facets to the top
+								facetValue.DisplayOrder = facetValue.FilterActive
+									? int.MinValue
+									: facetValue.DisplayOrder;
 								facetValue.OptionName = optionName;
 								facetValue.OptionProductCount = productCount;
 
@@ -166,18 +181,28 @@ namespace VIU.Plugin.SolrSearch.Factories
 							.ToListAsync()
 					};
 				})
+				.Where(productFacet => productFacet.FacetValues.Any(facetValue => facetValue.OptionProductCount > 0))
 				.ToListAsync();
 
-			if (!string.IsNullOrWhiteSpace(_viuSolrSearchSettings.SelectedFilterableSpecificationAttributeIds))
+			if (_viuSolrSearchSettings.HighlightingEnabled)
 			{
-				availableFacets = availableFacets.Where(facet => _viuSolrSearchSettings.SelectedFilterableSpecificationAttributeIds
-						.Split(',')
-						.Select(id => $"{ProductSolrDocument.SOLRFIELD_PREFIX_SPECIFICATION_ATTRIBUTES}{id}")
-						.Contains(facet.FacetName) || _viuSolrSearchSettings.IncludeCategoriesInFilter && facet.FacetName == ProductSolrDocument.SOLRFIELD_ALLCATEGORIES)
-					.ToList();
-			}
+				foreach (var product in model.Products)
+				{
+					var highlights = searchResult.Highlights.FirstOrDefault(h => h.Key == product.Id.ToString()).Value;
 
-			model.ProductFacets = availableFacets;
+					var highlightedProductName = highlights.FirstOrDefault(h => h.Key == SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, languageKey, false));
+
+					if (highlightedProductName.Equals(default(KeyValuePair<string, ICollection<string>>)) || string.IsNullOrWhiteSpace(highlightedProductName.Value.FirstOrDefault()))
+					{
+						highlightedProductName = highlights.FirstOrDefault(h => h.Key == SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, languageKey, true));
+					}
+
+					if (!highlightedProductName.Equals(default(KeyValuePair<string, ICollection<string>>)) && !string.IsNullOrWhiteSpace(highlightedProductName.Value.FirstOrDefault()))
+					{
+						product.Name = highlightedProductName.Value.FirstOrDefault();
+					}
+				}
+			}
 
 			model.NoResults = !model.Products.Any();
 
@@ -191,23 +216,38 @@ namespace VIU.Plugin.SolrSearch.Factories
 			string facetDisplayName;
 			int facetDisplayOrder;
 
-			if (ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE + ProductSolrDocument.SOLRFIELD_ALLCATEGORIES == facetKey)
+			switch (facetKey)
 			{
-				var category = await _categoryService.GetCategoryByIdAsync(optionId);
+				case ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + ProductSolrDocument.SOLRFIELD_ALLCATEGORIES:
+				{
+					var category = await _categoryService.GetCategoryByIdAsync(optionId);
 
-				if (category == null) return null;
+					if (category == null) return null;
 				
-				facetDisplayName = category.Name;
-				facetDisplayOrder = category.DisplayOrder;
-			}
-			else
-			{
-				var specOption = await _specificationAttributeService.GetSpecificationAttributeOptionByIdAsync(optionId);
+					facetDisplayName = category.Name;
+					facetDisplayOrder = category.DisplayOrder;
+					break;
+				}
+				case ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + ProductSolrDocument.SOLRFIELD_ALLMANUFACTURERS:
+				{
+					var manufacturer = await _manufacturerService.GetManufacturerByIdAsync(optionId);
+
+					if (manufacturer == null) return null;
+				
+					facetDisplayName = manufacturer.Name;
+					facetDisplayOrder = manufacturer.DisplayOrder;
+					break;
+				}
+				default:
+				{
+					var specOption = await _specificationAttributeService.GetSpecificationAttributeOptionByIdAsync(optionId);
 			
-				if (specOption == null) return null;
+					if (specOption == null) return null;
 			
-				facetDisplayName = await _localizationService.GetLocalizedAsync(specOption, b => b.Name, languageId);
-				facetDisplayOrder = specOption.DisplayOrder;
+					facetDisplayName = await _localizationService.GetLocalizedAsync(specOption, b => b.Name, languageId);
+					facetDisplayOrder = specOption.DisplayOrder;
+					break;
+				}
 			}
 			
 			return new ProductFacet.FacetValue
@@ -217,11 +257,7 @@ namespace VIU.Plugin.SolrSearch.Factories
 			};
 		}
 
-		public ProductOverviewModel PrepareProductOverviewModel(ProductSolrDocument coreProduct, 
-			string languageKey, 
-			bool preparePriceModel = true, 
-			bool preparePictureModel = true,
-			bool prepareSpecificationAttributes = false)
+		private async Task<ProductOverviewModel> PrepareProductOverviewModel(ProductSolrDocument coreProduct, string languageKey)
 		{
 			var defaultLanguage = _viuSolrSearchSettings.DefaultLanguage ?? "en";
 
@@ -250,7 +286,7 @@ namespace VIU.Plugin.SolrSearch.Factories
 			};
 
 			//price
-			if (preparePriceModel)
+			if (_viuSolrSearchSettings.PreparePriceModel)
 			{
 				model.ProductPrice = new ProductOverviewModel.ProductPriceModel
 				{
@@ -261,106 +297,40 @@ namespace VIU.Plugin.SolrSearch.Factories
 			}
 
 			//picture
-			if (preparePictureModel)
+			if (_viuSolrSearchSettings.PreparePictureModel)
 			{
 				model.DefaultPictureModel = new PictureModel
 				{
-					ImageUrl = coreProduct.ThumbImageUrl,
+					ThumbImageUrl = coreProduct.ThumbImageUrl,
+					ImageUrl = coreProduct.DefaultImageUrl,
+					FullSizeImageUrl = coreProduct.FullSizeImageUrl
 					//AlternateText = coreProduct.ImageAltText, TODO: implement
 					//Title = coreProduct.ImageAltText TODO: implement
 				};			
 			}
 
-			//specs
-			if (prepareSpecificationAttributes)
+			//specs 
+			if (_viuSolrSearchSettings.PrepareSpecificationAttributes)
 			{
-				model.ProductSpecificationModel = PrepareProductSpecificationModel(coreProduct.OtherFields
-					.Where(f => f.Key.StartsWith(ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE) && 
-					            f.Key.Contains(ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE_OPTIONS) && 
-					            f.Key.EndsWith(defaultLanguage)));
+				var product = await _productService.GetProductByIdAsync(coreProduct.Id);
+				model.ProductSpecificationModel = await _productModelFactory.PrepareProductSpecificationModelAsync(product);
 			}
 
 			return model;
 		}
 		
-		private ProductSpecificationModel PrepareProductSpecificationModel(IEnumerable<KeyValuePair<string, object>> attributes)
-		{
-			var specificationModel = new ProductSpecificationModel();
-			var attributeModel = new List<ProductSpecificationAttributeValueModel>();
-	        
-	        foreach (var (attributeKey, attributeValues) in attributes)
-	        {
-		        var attributeId = Regex.Match(attributeKey, @"\d+").Value;
-
-		        var attributeList = new List<string>();
-		        attributeList.AddRange(((ArrayList)attributeValues).Cast<string>());
-		        
-		        attributeModel.AddRange(attributeList.Select(attributeValue => new ProductSpecificationAttributeValueModel
-		        {
-			        ValueRaw = attributeValue
-		        }).ToList());
-		        
-		        specificationModel.Groups.Add(new ProductSpecificationAttributeGroupModel
-		        {
-			        Id = int.Parse(attributeId),
-			        Name = "SA" + attributeId,
-			        Attributes = new List<ProductSpecificationAttributeModel>{ new() { Values = attributeModel } },
-		        });
-	        }
-			
-
-	        return specificationModel;
-
-	        /*
-            return _specificationAttributeService.GetProductSpecificationAttributes(productId, 0, null, true)
-                .Select(psa =>
-                {
-                    var specAttributeOption =
-                        _specificationAttributeService.GetSpecificationAttributeOptionById(
-                            psa.SpecificationAttributeOptionId);
-                    var specAttribute =
-                        _specificationAttributeService.GetSpecificationAttributeById(specAttributeOption
-                            .SpecificationAttributeId);
-
-                    var m = new ProductSpecificationModel
-                    {
-                        SpecificationAttributeId = specAttribute.Id,
-                        SpecificationAttributeName = _localizationService.GetLocalized(specAttribute, x => x.Name),
-                        ColorSquaresRgb = specAttributeOption.ColorSquaresRgb,
-                        AttributeTypeId = psa.AttributeTypeId
-                    };
-
-                    switch (psa.AttributeType)
-                    {
-                        case SpecificationAttributeType.Option:
-                            m.ValueRaw =
-                                WebUtility.HtmlEncode(
-                                    _localizationService.GetLocalized(specAttributeOption, x => x.Name));
-                            break;
-                        case SpecificationAttributeType.CustomText:
-                            m.ValueRaw =
-                                WebUtility.HtmlEncode(_localizationService.GetLocalized(psa, x => x.CustomValue));
-                            break;
-                        case SpecificationAttributeType.CustomHtmlText:
-                            m.ValueRaw = _localizationService.GetLocalized(psa, x => x.CustomValue);
-                            break;
-                        case SpecificationAttributeType.Hyperlink:
-                            m.ValueRaw = $"<a href='{psa.CustomValue}' target='_blank'>{psa.CustomValue}</a>";
-                            break;
-                        default:
-                            break;
-                    }
-
-                    return m;
-                }).ToList();*/
-		}
-		
 		private async Task<string> GetFacetDisplayName(string facetKey, int languageId)
 		{
-			if (ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE + ProductSolrDocument.SOLRFIELD_ALLCATEGORIES == facetKey)
-				return await _localizationService.GetResourceAsync("filtering.categoryfilteredlabel", languageId);
-		
-			var facetIdString = facetKey.Replace(ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE, string.Empty).Replace("SA", string.Empty);
+			switch (facetKey)
+			{
+				case ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + ProductSolrDocument.SOLRFIELD_ALLCATEGORIES:
+					return await _localizationService.GetResourceAsync("filtering.categoryfilteredlabel", languageId);
+				
+				case ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + ProductSolrDocument.SOLRFIELD_ALLMANUFACTURERS:
+					return await _localizationService.GetResourceAsync("filtering.manufacturersfilteredlabel", languageId);
+			}
+
+			var facetIdString = facetKey.Replace(ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION, string.Empty).Replace("SA", string.Empty);
 
 			int.TryParse(facetIdString, out var facetId);
 
@@ -373,37 +343,14 @@ namespace VIU.Plugin.SolrSearch.Factories
 		{
 			var hasFacet = facets.Any(f => f.Key == facetName);
 
-			if (!hasFacet) return false;
-			
-			var facet = facets.FirstOrDefault(f => f.Key == facetName).Value;
-
-			return facet.Contains(optionName);
-		}
-
-		private void HandleHeroProducts(List<ProductOverviewModel> results)
-		{
-			var heroProducts = _viuSolrSearchSettings.HeroProducts;
-
-			if (string.IsNullOrWhiteSpace(heroProducts))
-				return;
-
-			var heroProductList = heroProducts.Split(',').Where(m => int.TryParse(m, out _)).Select(int.Parse).Reverse().ToList();
-			
-			foreach (var hpId in heroProductList)
+			if (hasFacet)
 			{
-				var index = results.FindIndex(item => item.Id == hpId);
+				var facet = facets.FirstOrDefault(f => f.Key == facetName).Value;
 
-				if (index <= 0) continue;
-				
-				var item = results[index];
-				
-				for (var i = index; i > 0; i--)
-				{
-					results[i] = results[i - 1];
-				}
-				
-				results[0] = item;
+				return facet.Contains(optionName);
 			}
+
+			return false;
 		}
 	}
 }

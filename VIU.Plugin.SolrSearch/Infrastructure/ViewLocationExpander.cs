@@ -24,24 +24,32 @@ namespace VIU.Plugin.SolrSearch.Infrastructure
 
         public IEnumerable<string> ExpandViewLocations(ViewLocationExpanderContext context, IEnumerable<string> viewLocations)
         {
+	        // override default SearchBox
+	        if (context.ViewName == "Components/SearchBox/Default")
+	        {
+		        viewLocations = new[] {
+			        "~/Plugins/VIU.Plugin.SolrSearch/Views/Shared/{0}.cshtml",
+		        }.Concat(viewLocations); 
+	        }
+	        
             if (_controllerWhisteList.Contains(context.ControllerName.ToLower()))
             {
                 if (context.Values.TryGetValue(THEME_KEY, out var theme) && _supportedThemes.Contains(theme))
                 {
                     viewLocations = new[]
                     {
-                        $"~/Plugins/SolrSearch/Themes/{theme}/Views/{{1}}/{{0}}.cshtml",
-                        $"~/Plugins/SolrSearch/Themes/{theme}/Views/Shared/{{0}}.cshtml",
-                         "~/Plugins/SolrSearch/Views/{1}/{0}.cshtml", 
-                         "~/Plugins/SolrSearch/Views/Shared/{0}.cshtml"
+                        $"~/Plugins/VIU.Plugin.SolrSearch/Themes/{theme}/Views/{{1}}/{{0}}.cshtml",
+                        $"~/Plugins/VIU.Plugin.SolrSearch/Themes/{theme}/Views/Shared/{{0}}.cshtml",
+                         "~/Plugins/VIU.Plugin.SolrSearch/Views/{1}/{0}.cshtml", 
+                         "~/Plugins/VIU.Plugin.SolrSearch/Views/Shared/{0}.cshtml"
                     }.Concat(viewLocations);
                 }
                 else
                 {
                     viewLocations = new[]
                     {
-                        "~/Plugins/SolrSearch/Views/{1}/{0}.cshtml", 
-                        "~/Plugins/SolrSearch/Views/Shared/{0}.cshtml"
+                        "~/Plugins/VIU.Plugin.SolrSearch/Views/{1}/{0}.cshtml", 
+                        "~/Plugins/VIU.Plugin.SolrSearch/Views/Shared/{0}.cshtml"
                     }.Concat(viewLocations);
                 }
             }
@@ -49,8 +57,8 @@ namespace VIU.Plugin.SolrSearch.Infrastructure
             if (context.ControllerName == "ViuSolrSearchSettings" && context.AreaName == "Admin")
             {
                 viewLocations = new[] {
-                    "~/Plugins/SolrSearch/Areas/Admin/Views/{1}/{0}.cshtml",
-                    "~/Plugins/SolrSearch/Areas/Admin/Views/Shared/{0}.cshtml"
+                    "~/Plugins/VIU.Plugin.SolrSearch/Areas/Admin/Views/{1}/{0}.cshtml",
+                    "~/Plugins/VIU.Plugin.SolrSearch/Areas/Admin/Views/Shared/{0}.cshtml"
                 }.Concat(viewLocations);
             }
 

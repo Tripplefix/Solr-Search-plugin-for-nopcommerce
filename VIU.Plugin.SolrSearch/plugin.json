@@ -1,8 +1,8 @@
 ﻿{
   "Group": "VIU",
   "FriendlyName": "VIU Solr Search",
-  "SystemName": "SolrSearch",
-  "Version": "1.7",
+  "SystemName": "VIU.Plugin.SolrSearch",
+  "Version": "1.10",
   "SupportedVersions": [ "4.40" ],
   "Author": "Dirk Dresselhaus",
   "DisplayOrder": 1,

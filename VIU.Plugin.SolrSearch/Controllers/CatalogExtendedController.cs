@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using Nop.Core;
 using Nop.Core.Domain.Catalog;
 using Nop.Services.Logging;
+using Nop.Web.Framework.Mvc.Filters;
 using Nop.Web.Models.Catalog;
 using VIU.Plugin.SolrSearch.Factories;
 using VIU.Plugin.SolrSearch.Models;
@@ -33,12 +34,16 @@ namespace VIU.Plugin.SolrSearch.Controllers
 			_workContext = workContext;
 		}
 
-		[Route("/catalog/searchtermautocomplete")]
-		[Route("/{language:lang=de}/catalog/searchtermautocomplete")]
+		[CheckLanguageSeoCode(true)]
 		public async Task<IActionResult> SearchTermAutoComplete(string term)
 		{
 			if (string.IsNullOrWhiteSpace(term))
-				return BadRequest();
+				return Content("");
+
+			term = term.Trim();
+
+			if (string.IsNullOrWhiteSpace(term) || term.Length < _catalogSettings.ProductSearchTermMinimumLength)
+				return Content("");
     
 			try 
 			{
@@ -56,27 +61,21 @@ namespace VIU.Plugin.SolrSearch.Controllers
 				var productResult = (await _solrSearchFactory.PrepareSearchModel(searchModel)).Products;
 				
 				var productResultJson = (productResult.Take(productNumber)
-						.Select(delegate(ProductOverviewModel p)
+						.Select(p => new
 						{
-							var label = p.Name;
-
-							var indexOfTerm = label.IndexOf(term, StringComparison.InvariantCultureIgnoreCase);
-							var termToHighlight = indexOfTerm >= 0 ? label.Substring(indexOfTerm, term.Length) : string.Empty;
-							
-							return new
-							{
-								type = "product",
-								label = label.Replace(term, $@"<b>{termToHighlight}</b>", StringComparison.InvariantCultureIgnoreCase),
-								producturl = Url.RouteUrl("Product", new { SeName = p.SeName }),
-								productpictureurl = p.DefaultPictureModel.ImageUrl,
-								totalcountblogs = 0,
-								totalcountproducts = productResult.Count,
-								showlinktoresultsearch = showLinkToResultSearch
-							};
+							type = "product",
+							label = p.Name,
+							producturl = Url.RouteUrl("Product", new { SeName = p.SeName }),
+							productpictureurl = p.DefaultPictureModel.ThumbImageUrl,
+							totalcountblogs = 0,
+							totalcountproducts = productResult.Count,
+							showlinktoresultsearch = showLinkToResultSearch
 						}))
 					.ToList();
 				
 				//cms 
+				
+				/*
 				JArray kontentResult = null;
 				var totalBlogsCount = 0;
 				var storeLocation = _webHelper.GetStoreLocation();
@@ -125,8 +124,9 @@ namespace VIU.Plugin.SolrSearch.Controllers
 					.ToList();
 
 				var resultJson = productResultJson.Concat(kontentResultJson).ToList();
+				*/
 				
-				return Json(resultJson);
+				return Json(productResultJson);
 			}
 			catch (Exception e)
 			{

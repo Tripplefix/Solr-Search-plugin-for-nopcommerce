@@ -11,13 +11,19 @@
     
     var hasQ = Model.q != string.Empty;
 
+    // sort products on Shop Page by SKU
+    if (!hasQ)
+    {
+        Model.Products = Model.Products.OrderBy(product => product.Sku).ToList();
+    }
+
     //title
     Html.AddTitleParts(T(hasQ ? "VIU.Plugin.SolrSearch.PageTitle.SearchWithQ" : "VIU.Plugin.SolrSearch.PageTitle.SearchWithoutQ").Text);
     
     const int InitiallyLoadedProducts = 4;
     
     var blogResults = await Component.InvokeAsync("Widget", new {widgetZone = "kontent_search_blog_results", additionalData = Model.q});
-    var blogResultsEnabled = hasQ && !string.IsNullOrEmpty(blogResults.ToString());
+    var blogResultsEnabled = hasQ && !string.IsNullOrEmpty(blogResults.ToHtmlString());
     
     // load prices async
     Html.AppendScriptParts(ResourceLocation.Footer, $"~/Plugins/VIU.Plugin.SolrSearch/Content/JavaScripts/solr-prices-async.js?v3");

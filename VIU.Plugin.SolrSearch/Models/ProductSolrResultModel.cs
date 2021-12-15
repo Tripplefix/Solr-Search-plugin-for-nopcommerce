@@ -31,8 +31,6 @@ namespace VIU.Plugin.SolrSearch.Models
         public IList<ProductOverviewModel> Products { get; set; }
 
         public IList<ProductFacet> ProductFacets { get; set; }
-        
-        public CatalogProductsModel CatalogProductsModel { get; set; }
     }
 
     public class ProductFacet

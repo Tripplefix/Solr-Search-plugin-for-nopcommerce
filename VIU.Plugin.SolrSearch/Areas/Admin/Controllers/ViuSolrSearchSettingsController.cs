@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Services.Catalog;
 using Nop.Core;
+using Nop.Core.Caching;
 using Nop.Core.Domain.Catalog;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
@@ -33,16 +34,18 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
         private readonly IProductService _productService;
         private readonly IUrlRecordService _urlRecordService;
         private readonly ISpecificationAttributeService _specificationAttributeService;
+        private readonly IStaticCacheManager _staticCacheManager;
 
-        public ViuSolrSearchSettingsController(ISettingService settingService, ILocalizationService localizationService, IPermissionService permissionService, INotificationService notificationService, IProductService productService, IUrlRecordService urlRecordService, ISpecificationAttributeService specificationAttributeService)
+        public ViuSolrSearchSettingsController(ISettingService settingService, ILocalizationService localizationService, IPermissionService permissionService, INotificationService notificationService, IProductService productService, IUrlRecordService urlRecordService, ISpecificationAttributeService specificationAttributeService, IStaticCacheManager staticCacheManager)
         {
-            _settingService = settingService;
-            _localizationService = localizationService;
-            _permissionService = permissionService;
-            _notificationService = notificationService;
-            _productService = productService;
-            _urlRecordService = urlRecordService;
-            _specificationAttributeService = specificationAttributeService;
+	        _settingService = settingService;
+	        _localizationService = localizationService;
+	        _permissionService = permissionService;
+	        _notificationService = notificationService;
+	        _productService = productService;
+	        _urlRecordService = urlRecordService;
+	        _specificationAttributeService = specificationAttributeService;
+	        _staticCacheManager = staticCacheManager;
         }
 
         [AuthorizeAdmin]
@@ -111,9 +114,10 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
             
             var heroProductIds = (await GetHeroProductIds()).ToArray();
 
-            var heroProducts = 
-                new PagedList<Product>( await _productService.GetProductsByIdsAsync(heroProductIds), searchModel.Page - 1, searchModel.PageSize);
+            //var heroProducts = new PagedList<Product>(await _productService.GetProductsByIdsAsync(heroProductIds), searchModel.Page - 1, searchModel.PageSize);
 
+            var heroProducts = (await _productService.GetProductsByIdsAsync(heroProductIds)).ToPagedList(searchModel);
+            
             var model = new HeroProductListModel().PrepareToGrid(searchModel, heroProducts, () =>
             {
                 return heroProducts.Select((product, index) => new HeroProductModel
@@ -219,6 +223,9 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
                 }
             }
             
+            // todo: there is probably a better solution, but I haven't found it, yet
+            await _staticCacheManager.ClearAsync();
+            
             return Json(new { result = true });
         }
 
@@ -244,6 +251,9 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
                     await SaveHeroProductIds(heroProductIds);
                 }
             }
+            
+            // todo: there is probably a better solution, but I haven't found it, yet
+            await _staticCacheManager.ClearAsync();
             
             return Json(new { result = true });
         }

@@ -4,6 +4,8 @@ using SolrNet.Commands.Parameters;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Nop.Core.Events;
+using VIU.Plugin.SolrSearch.Infrastructure;
 using VIU.Plugin.SolrSearch.Models;
 using VIU.Plugin.SolrSearch.Settings;
 using VIU.Plugin.SolrSearch.Tools;
@@ -15,18 +17,18 @@ namespace VIU.Plugin.SolrSearch.Services
         private readonly ISolrOperations<ProductSolrDocument> _solrOperations;
         private readonly IWorkContext _workContext;
         private readonly ViuSolrSearchSettings _viuSolrSearchSettings;
+        private readonly IEventPublisher _eventPublisher;
 
-        public ProductSearchService(ISolrOperations<ProductSolrDocument> solrOperations, IWorkContext workContext, ViuSolrSearchSettings viuSolrSearchSettings)
+        public ProductSearchService(ISolrOperations<ProductSolrDocument> solrOperations, IWorkContext workContext, ViuSolrSearchSettings viuSolrSearchSettings, IEventPublisher eventPublisher)
         {
             _solrOperations = solrOperations;
             _workContext = workContext;
             _viuSolrSearchSettings = viuSolrSearchSettings;
+            _eventPublisher = eventPublisher;
         }
 
-        public async Task<SolrQueryResults<ProductSolrDocument>> Search(string q, string languageKey = null,
-            IEnumerable<KeyValuePair<string, List<string>>> facets = null, List<string> returnfacets = null)
+        public async Task<SolrQueryResults<ProductSolrDocument>> Search(string q, string languageKey = null, IEnumerable<KeyValuePair<string, List<string>>> facets = null, List<string> returnFacets = null)
         {
-            var defaultLanguage = _viuSolrSearchSettings.DefaultLanguage ?? "en";
 
             if (string.IsNullOrWhiteSpace(q))
             {
@@ -40,92 +42,182 @@ namespace VIU.Plugin.SolrSearch.Services
 
             //facets
             facets ??= new List<KeyValuePair<string, List<string>>>();
-
-            var facetQueryPartList = new List<AbstractSolrQuery>();
-
+            
+            var filter = new List<ISolrQuery>();
+            
             foreach (var (facetName, facetOptions) in facets)
             {
-                var multipleFacetValuesForOneFacet = facetOptions
-                    .Select(facetValue => new SolrQueryByField(ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE + facetName, facetValue))
-                    .Cast<AbstractSolrQuery>()
-                    .ToList();
-
-                facetQueryPartList.Add(new SolrMultipleCriteriaQuery(multipleFacetValuesForOneFacet, "OR"));
+                var facetFilter = 
+                    new LocalParams { { "tag", facetName }, { "mincount", "1" } } +
+                    new SolrQueryInList(ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + facetName, facetOptions);
+                
+                filter.Add(facetFilter);
             }
 
-            var facetQueryPart = new SolrMultipleCriteriaQuery(facetQueryPartList, "AND");
-
-            //return facets
-            var queryOptions = ConfigureQueryOptions(returnfacets);
-
-            //search for q within "static" fields
-            var skuQuery = new SolrQueryByField(SolrTools.GetStaticTextFieldName(ProductSolrDocument.SOLRFIELD_SKU), q).Boost(30);
-            var gtinQuery = new SolrQueryByField(SolrTools.GetStaticTextFieldName(ProductSolrDocument.SOLRFIELD_GTIN), q).Boost(30);
-
-            //if language not given, try to use from workContext
-            if (string.IsNullOrWhiteSpace(languageKey))
+            var queryOptions = new QueryOptions
             {
-                languageKey = SolrTools.GetLanguageKey(await _workContext.GetWorkingLanguageAsync());
-            }
-
-            //search language based
-            var languageBasedQueryPart = new SolrMultipleCriteriaQuery(new List<AbstractSolrQuery> {
-                GetFuzzySolrQueryField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, languageKey), q).Boost(20),
-                new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_SHORTDESCRIPTION, languageKey), q),
-                new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_FULLDESCRIPTION, languageKey), q),
-                skuQuery,
-                gtinQuery
-            }, "OR");
-
-            var languageBasedQueryList = new List<AbstractSolrQuery>
-            {
-                languageBasedQueryPart,
-                facetQueryPart
+                Rows = _viuSolrSearchSettings.MaxReturnedDocuments,
+                FilterQueries = filter,
+                Facet = returnFacets != null ? new FacetParameters
+                {
+                    Queries = returnFacets.Select(facet =>
+                            new SolrFacetFieldQuery(new LocalParams {{"ex", facet}} + ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + facet))
+                        .ToArray(),
+                    MinCount = _viuSolrSearchSettings.HideFacetOptionsWithNoCount ? 1 : 0
+                } : null
             };
 
-            var result = _solrOperations.Query(new SolrMultipleCriteriaQuery(languageBasedQueryList, "AND"), queryOptions);
+            if (_viuSolrSearchSettings.HighlightingEnabled)
+            {
+                queryOptions.Highlight = new HighlightingParameters
+                {
+                    Fields = new[]
+                    {
+                        SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, languageKey, true),
+                        SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, languageKey, false)
+                    },
+                    BeforeTerm = "<b>",
+                    AfterTerm = "</b>"
+                };
+            }
 
+            if (_viuSolrSearchSettings.SpellcheckingEnabled)
+            {
+                queryOptions.SpellCheck = new SpellCheckingParameters
+                {
+                    Collate = true,
+                    OnlyMorePopular = _viuSolrSearchSettings.SpellcheckingOnlyMorePopular
+                };
+            }
+
+            var languageBasedQueries = await PrepareQueries(q, languageKey, false);
+
+            var result = await _solrOperations.QueryAsync(languageBasedQueries, queryOptions);
+
+            if (_viuSolrSearchSettings.EnableHeroProducts)
+            {
+                HandleHeroProducts(result);
+            }
+            
             if (result != null && result.Count > 0)
             {
                 return result;
             }
 
-            //search in default fields: if language not given or language-based search did not find any results
-            var defaultQueryPart = new SolrMultipleCriteriaQuery(new List<AbstractSolrQuery> {
-                GetFuzzySolrQueryField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, defaultLanguage, true), q).Boost(20),
-                new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_SHORTDESCRIPTION, defaultLanguage, true), q),
-                new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_FULLDESCRIPTION, defaultLanguage, true), q),
-                skuQuery,
-                gtinQuery
-            }, "OR");
-
-            var defaultQueryList = new List<AbstractSolrQuery>
+            var defaultQueries = await PrepareQueries(q, languageKey, true);
+            
+            result = await _solrOperations.QueryAsync(defaultQueries, queryOptions);
+            
+            if (_viuSolrSearchSettings.EnableHeroProducts)
             {
-                defaultQueryPart,
-                facetQueryPart
-            };
-
-            result = _solrOperations.Query(new SolrMultipleCriteriaQuery(defaultQueryList, "AND"), queryOptions);
-
+                HandleHeroProducts(result);
+            }
+            
             return result;
         }
 
-        //TODO (if required) improve: support for SolrQueryRange, Date facets etc.
-        private static QueryOptions ConfigureQueryOptions(List<string> returnfacets, int maxRows = 250)
+        private async Task<SolrMultipleCriteriaQuery> PrepareQueries(string q, string language, bool isDefault)
         {
-            return new QueryOptions
+            language = isDefault ? _viuSolrSearchSettings.DefaultLanguage : language;
+            
+            //if language not given, try to use from workContext
+            if (string.IsNullOrWhiteSpace(language))
             {
-                Rows = maxRows,
-                Facet = returnfacets != null ? new FacetParameters { Queries = returnfacets.Select(facet => new SolrFacetFieldQuery(ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE + facet)).ToArray() } : null
+                language = SolrTools.GetLanguageKey(await _workContext.GetWorkingLanguageAsync());
+            }
+            
+            var queries = new List<ISolrQuery> {
+                new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, language, isDefault), q).Boost(_viuSolrSearchSettings.ProductNameQueryBoost ?? 0),
+                new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_SHORTDESCRIPTION, language, isDefault), q),
+                new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_FULLDESCRIPTION, language, isDefault), q),
+                new SolrQueryByField(SolrTools.GetStaticTextFieldName(ProductSolrDocument.SOLRFIELD_SKU), q).Boost(_viuSolrSearchSettings.ProductSkuQueryBoost ?? 0),
+                new SolrQueryByField(SolrTools.GetStaticTextFieldName(ProductSolrDocument.SOLRFIELD_GTIN), q).Boost(_viuSolrSearchSettings.ProductGtinQueryBoost ?? 0)
+                //todo: specification attributes? categories? manufacturers?
             };
+
+            //wildcard search
+            if (_viuSolrSearchSettings.WildcardQueryEnabled && q.Length >= _viuSolrSearchSettings.WildcardQueryMinLength && !q.EndsWith("*"))
+            {
+                var fieldValue = q;
+                switch (_viuSolrSearchSettings.WildcardQuerySelectedType)
+                {
+                    case ViuSolrSearchSettings.WildcardQueryType.Prefix:
+                        fieldValue = "*" + fieldValue;
+                        break;
+                    case ViuSolrSearchSettings.WildcardQueryType.PrefixAndPostfix:
+                        fieldValue = "*" + fieldValue + "*";
+                        break;
+                    case ViuSolrSearchSettings.WildcardQueryType.Postfix:
+                    default:
+                        fieldValue += "*";
+                        break;
+                }
+                
+                queries.Add(new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, language, isDefault), fieldValue)
+                {
+                    Quoted = false
+                }.Boost(_viuSolrSearchSettings.WildcardQueryBoost ?? 0));
+            }
+
+            //fuzzy search
+            if (_viuSolrSearchSettings.FuzzyQueryEnabled && q.Length >= _viuSolrSearchSettings.FuzzyQueryMinLength && !q.EndsWith("~"))
+            {
+                var fieldValue = q + "~";
+
+                if (_viuSolrSearchSettings.FuzzyQueryFuzziness != null)
+                {
+                    fieldValue += _viuSolrSearchSettings.FuzzyQueryFuzziness;
+                }
+                
+                queries.Add(new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, language, isDefault), fieldValue)
+                {
+                    Quoted = false
+                }.Boost(_viuSolrSearchSettings.FuzzyQueryBoost ?? 0));
+            }
+
+            //phrase search
+            if (_viuSolrSearchSettings.PhraseQueryEnabled)
+            {
+                var fieldValue = $@"""{q}""";
+
+                if (_viuSolrSearchSettings.PhraseQueryProximity != null)
+                {
+                    fieldValue += "~" + _viuSolrSearchSettings.PhraseQueryProximity;
+                }
+                
+                queries.Add(new SolrQueryByField(SolrTools.GetLocalizedTextFieldName(ProductSolrDocument.SOLRFIELD_NAME, language, isDefault), fieldValue)
+                {
+                    Quoted = false
+                }.Boost(_viuSolrSearchSettings.PhraseQueryBoost ?? 0));
+            }
+            
+            //raise event       
+            await _eventPublisher.PublishAsync(new ProductSearchedEvent(queries, q, language, false));
+
+            return new SolrMultipleCriteriaQuery(queries, "OR");
         }
 
-        private static SolrQueryByField GetFuzzySolrQueryField(string field, string q)
+        private void HandleHeroProducts(List<ProductSolrDocument> results)
         {
-            return new SolrQueryByField(field, q + "~")
+            var heroProducts = _viuSolrSearchSettings.HeroProducts;
+            
+            if (string.IsNullOrWhiteSpace(heroProducts)) return;
+            
+            var heroProductList = heroProducts.Split(',').Where(m => int.TryParse(m, out _)).Select(int.Parse).Reverse().ToList();
+            
+            foreach (var hpId in heroProductList)
             {
-                Quoted = false
-            };
+                var index = results.FindIndex(item => item.Id == hpId);
+                if (index <= 0) continue;
+                    
+                var item = results[index];
+                for (var i = index; i > 0; i--)
+                {
+                    results[i] = results[i - 1];
+                }
+                results[0] = item;
+            }
         }
+
     }
 }

@@ -12,6 +12,8 @@ using Nop.Services.Seo;
 using Nop.Core.Domain.Media;
 using Nop.Services.Security;
 using System.Threading.Tasks;
+using Nop.Core.Events;
+using VIU.Plugin.SolrSearch.Infrastructure;
 using VIU.Plugin.SolrSearch.Settings;
 
 namespace VIU.Plugin.SolrSearch.Services
@@ -31,24 +33,26 @@ namespace VIU.Plugin.SolrSearch.Services
         private readonly ILocalizedEntityService _localizedEntityService;
         private readonly ILogger _logger;
         private readonly IProductService _productService;
-        private readonly ILocalizationService _localizationService;
+        private readonly IManufacturerService _manufacturerService;
+        private readonly IEventPublisher _eventPublisher;
 
-        public ProductIndexingService(ISolrOperations<ProductSolrDocument> solrOperations, ViuSolrSearchSettings viuSolrSearchSettings, IUrlRecordService urlRecordService, IPermissionService permissionService, CatalogSettings catalogSettings, ISpecificationAttributeService specificationAttributeService, ICategoryService categoryService, IPictureService pictureService, MediaSettings mediaSettings, ILanguageService languageService, ILocalizedEntityService localizedEntityService, ILogger logger, IProductService productService, ILocalizationService localizationService)
+        public ProductIndexingService(ISolrOperations<ProductSolrDocument> solrOperations, ViuSolrSearchSettings viuSolrSearchSettings, IUrlRecordService urlRecordService, IPermissionService permissionService, CatalogSettings catalogSettings, ISpecificationAttributeService specificationAttributeService, ICategoryService categoryService, IPictureService pictureService, MediaSettings mediaSettings, ILanguageService languageService, ILocalizedEntityService localizedEntityService, ILogger logger, IProductService productService, IManufacturerService manufacturerService, IEventPublisher eventPublisher)
         {
-            _solrOperations = solrOperations;
-            _viuSolrSearchSettings = viuSolrSearchSettings;
-            _urlRecordService = urlRecordService;
-            _permissionService = permissionService;
-            _catalogSettings = catalogSettings;
-            _specificationAttributeService = specificationAttributeService;
-            _categoryService = categoryService;
-            _pictureService = pictureService;
-            _mediaSettings = mediaSettings;
-            _languageService = languageService;
-            _localizedEntityService = localizedEntityService;
-            _logger = logger;
-            _productService = productService;
-            _localizationService = localizationService;
+	        _solrOperations = solrOperations;
+	        _viuSolrSearchSettings = viuSolrSearchSettings;
+	        _urlRecordService = urlRecordService;
+	        _permissionService = permissionService;
+	        _catalogSettings = catalogSettings;
+	        _specificationAttributeService = specificationAttributeService;
+	        _categoryService = categoryService;
+	        _pictureService = pictureService;
+	        _mediaSettings = mediaSettings;
+	        _languageService = languageService;
+	        _localizedEntityService = localizedEntityService;
+	        _logger = logger;
+	        _productService = productService;
+	        _manufacturerService = manufacturerService;
+	        _eventPublisher = eventPublisher;
         }
 
         public async Task<string> ReindexAllProducts()
@@ -114,27 +118,14 @@ namespace VIU.Plugin.SolrSearch.Services
             var defaultLanguage = _viuSolrSearchSettings.DefaultLanguage ?? "en";
 
             //get categories
-            var pcs = await _categoryService.GetProductCategoriesByProductIdAsync(product.Id);
-
-            var categories = await pcs
-                .SelectAwait(async pc => await _categoryService.GetCategoryByIdAsync(pc.CategoryId))
-                .Select(c => c.Id.ToString()).ToListAsync();
+            var categories = (await _categoryService.GetProductCategoriesByProductIdAsync(product.Id)).Select(pc => pc.CategoryId.ToString()).ToList();
 
             //get product picture
             var productPicture = (await _pictureService.GetPicturesByProductIdAsync(product.Id, 1)).FirstOrDefault();
-
-
-            var fullSizeImageUrl = string.Empty;
-            var imageUrl = string.Empty;
             
-            if (productPicture != null)
-            {
-                var picture = await _pictureService.GetPictureByIdAsync(productPicture.Id);
+            //get manufacturers
+            var manufacturers = (await _manufacturerService.GetProductManufacturersByProductIdAsync(product.Id)).Select(mf => mf.ManufacturerId.ToString()).ToList();
 
-                (fullSizeImageUrl, picture) = await _pictureService.GetPictureUrlAsync(picture);
-                (imageUrl, _) = await _pictureService.GetPictureUrlAsync(picture, _mediaSettings.ProductThumbPictureSize);
-            }
-            
             //new Solr Document
             var psd = new ProductSolrDocument
             {
@@ -144,9 +135,9 @@ namespace VIU.Plugin.SolrSearch.Services
                 Gtin = product.Gtin,
                 ProductType = product.ProductType.ToString(),
                 Manufacturer = product.ManufacturerPartNumber,
-                DefaultImageUrl = imageUrl,
-                ThumbImageUrl = imageUrl,
-                FullSizeImageUrl = fullSizeImageUrl,
+                DefaultImageUrl = (await _pictureService.GetPictureUrlAsync(productPicture, _mediaSettings.ProductDetailsPictureSize)).Url,
+                ThumbImageUrl = (await _pictureService.GetPictureUrlAsync(productPicture, _mediaSettings.AutoCompleteSearchThumbPictureSize)).Url,
+                FullSizeImageUrl = (await _pictureService.GetPictureUrlAsync(productPicture)).Url,
                 DisableBuyButton = product.DisableBuyButton ||
                                       !await _permissionService.AuthorizeAsync(StandardPermissionProvider.EnableShoppingCart) ||
                                       !await _permissionService.AuthorizeAsync(StandardPermissionProvider.DisplayPrices),
@@ -154,7 +145,8 @@ namespace VIU.Plugin.SolrSearch.Services
                                            !await _permissionService.AuthorizeAsync(StandardPermissionProvider.EnableWishlist) ||
                                            !await _permissionService.AuthorizeAsync(StandardPermissionProvider.DisplayPrices),
                 DisableAddToCompareListButton = !_catalogSettings.CompareProductsEnabled,
-                AllCategories = categories
+                AllCategories = categories,
+                AllManufacturers = manufacturers
             };
 
             //all other fields
@@ -195,51 +187,38 @@ namespace VIU.Plugin.SolrSearch.Services
             {
                 var sao = await _specificationAttributeService.GetSpecificationAttributeOptionByIdAsync(psa.SpecificationAttributeOptionId);
                 var sa = await _specificationAttributeService.GetSpecificationAttributeByIdAsync(sao.SpecificationAttributeId);
-
-                if (sa == null) continue;
                 
-                foreach (var language in languages)
+                if (sa != null)
                 {
-                    var saNameLocalized = await _localizationService.GetLocalizedAsync(sa, entity => entity.Name, language.Id);
-                        
                     //add specification attributes "readable"
-                    var attributeNameField = ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE + sa.Id + "_title_" + SolrTools.GetLanguageKey(language);
+                    var attributeNameField = ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + sa.Name;
 
-                    if (otherFields.All(f => f.Key != attributeNameField))
-                    {
-                        otherFields.Add(attributeNameField, saNameLocalized);
-                    }
-
-                    var saoNameLocalized = await _localizationService.GetLocalizedAsync(sao, entity => entity.Name, language.Id);
-                        
-                    var attributeOptionsField = ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE + sa.Id + "_options_" + SolrTools.GetLanguageKey(language);
-                        
-                    if (otherFields.TryGetValue(attributeOptionsField, out var nameResult)) {
-                        ((List<string>) nameResult).Add(saoNameLocalized);
+                    if (otherFields.TryGetValue(attributeNameField, out object nameResult)) {
+                        ((List<string>) nameResult).Add(sao.Name);
                     }
                     else
                     {
-                        otherFields.Add(attributeOptionsField, new List<string>
-                        {
-                            saoNameLocalized
-                        });
+                        otherFields.Add(attributeNameField, new List<string> { sao.Name });
                     }
-                }
-                        
-                //add specification attributes based on IDs
-                var attributeIdField = ProductSolrDocument.SOLRFIELD_SPECIFICATION_ATTRIBUTE + "SA" + sa.Id;
 
-                if (otherFields.TryGetValue(attributeIdField, out object idResult))
-                {
-                    ((List<int>) idResult).Add(sao.Id);
-                }
-                else
-                {
-                    otherFields.Add(attributeIdField, new List<int> { sao.Id });
+                    //add specification attributes based on IDs
+                    attributeNameField = ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + "SA" + sa.Id;
+
+                    if (otherFields.TryGetValue(attributeNameField, out object idResult))
+                    {
+                        ((List<int>) idResult).Add(sao.Id);
+                    }
+                    else
+                    {
+                        otherFields.Add(attributeNameField, new List<int> { sao.Id });
+                    }
                 }
             }
 
             psd.OtherFields = otherFields.Count > 0 ? otherFields : null;
+            
+            //raise event       
+            await _eventPublisher.PublishAsync(new ProductIndexedEvent(psd, defaultLanguage));
 
             return psd;
         }

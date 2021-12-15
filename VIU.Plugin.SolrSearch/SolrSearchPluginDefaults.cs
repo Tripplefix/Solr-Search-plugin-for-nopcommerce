@@ -1,5 +1,4 @@
 ﻿using Nop.Core;
-using Nop.Core.Caching;
 
 namespace VIU.Plugin.SolrSearch
 {
@@ -9,19 +8,9 @@ namespace VIU.Plugin.SolrSearch
     public static class SolrSearchPluginDefaults
     {
         /// <summary>
-        /// Gets a name of the view component to embed tracking script on pages
-        /// </summary>
-        public const string TRACKING_VIEW_COMPONENT_NAME = "WidgetsSendinblue";
-
-        /// <summary>
         /// Gets a plugin system name
         /// </summary>
         public static string SystemName => "SolrSearch";
-
-        /// <summary>
-        /// Gets a plugin partner name
-        /// </summary>
-        public static string PartnerName => "NOPCOMMERCE";
 
         /// <summary>
         /// Gets a user agent used to request Sendinblue services
