@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Routing;
 using Nop.Core;
 using Nop.Core.Domain.Tasks;
@@ -6,8 +7,10 @@ using Nop.Services.Configuration;
 using Nop.Services.Customers;
 using Nop.Services.Localization;
 using Nop.Services.Plugins;
+using Nop.Services.Security;
 using Nop.Services.Tasks;
 using Nop.Web.Framework.Menu;
+using VIU.Plugin.SolrSearch.Infrastructure;
 using VIU.Plugin.SolrSearch.Settings;
 using Task = System.Threading.Tasks.Task;
 
@@ -20,14 +23,16 @@ namespace VIU.Plugin.SolrSearch
         private readonly IWorkContext _workContext;
         private readonly IScheduleTaskService _scheduleTaskService;
         private readonly ISettingService _settingService;
+        private readonly IPermissionService _permissionService;
 
-        public SolrSearchPlugin(ILocalizationService localizationService, ICustomerService customerService, IWorkContext workContext, IScheduleTaskService scheduleTaskService, ISettingService settingService)
+        public SolrSearchPlugin(ILocalizationService localizationService, ICustomerService customerService, IWorkContext workContext, IScheduleTaskService scheduleTaskService, ISettingService settingService, IPermissionService permissionService)
         {
 	        _localizationService = localizationService;
 	        _customerService = customerService;
 	        _workContext = workContext;
 	        _scheduleTaskService = scheduleTaskService;
 	        _settingService = settingService;
+	        _permissionService = permissionService;
         }
 
         public async Task ManageSiteMapAsync(SiteMapNode rootNode)
@@ -36,7 +41,7 @@ namespace VIU.Plugin.SolrSearch
             {
                 SystemName = "VIU.Plugin.SolrSearch",
                 Title = await _localizationService.GetResourceAsync("VIU.Plugin.SolrSearch.Menu.Top"),
-                Visible = await _customerService.IsAdminAsync(await _workContext.GetCurrentCustomerAsync()),
+                Visible = await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch),
                 IconClass = "fas fa-search"
             };
             
@@ -46,7 +51,7 @@ namespace VIU.Plugin.SolrSearch
                 Title = await _localizationService.GetResourceAsync("VIU.Plugin.SolrSearch.Menu.GeneralSettings"),
                 ControllerName = "ViuSolrSearchSettings",
                 ActionName = "Configure",
-                Visible = await _customerService.IsAdminAsync(await _workContext.GetCurrentCustomerAsync()),
+                Visible = await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch),
                 RouteValues = new RouteValueDictionary
                 {
                     {
@@ -62,6 +67,10 @@ namespace VIU.Plugin.SolrSearch
 
         public override async Task InstallAsync()
         {
+	        //permissions
+	        var provider = (IPermissionProvider)Activator.CreateInstance(typeof(SolrPermissionProvider));
+	        await _permissionService.InstallPermissionsAsync(provider);
+	        
 	        //locales
 	        await _localizationService.AddLocaleResourceAsync(AdminLocales);
 	        await _localizationService.AddLocaleResourceAsync(StoreFrontLocales);
@@ -142,7 +151,7 @@ namespace VIU.Plugin.SolrSearch
 	        ["VIU.Plugin.SolrSearch.ResultPage.Title"] = "Dermaplast Sortiment",
 	        ["VIU.Plugin.SolrSearch.ResultPage.ShowMore"] = "Mehr anzeigen",
 	        ["VIU.Plugin.SolrSearch.ResultPage.ResultsFor"] = "Suchergebnisse für “{0}“",
-	        ["VIU.Plugin.SolrSearch.ResultPage.ProductsWithCount"] = "Produkte ({0} Treffer)",
+	        ["VIU.Plugin.SolrSearch.ResultPage.ProductsWithCount"] = "{0}",
         };
         
         private static Dictionary<string, string> AdminLocales => new()
@@ -169,8 +178,8 @@ namespace VIU.Plugin.SolrSearch
             ["VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts"] = "Hero Products comma-separated",
             ["VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.Product"] = "Product Name",
             ["VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.DisplayOrder"] = "Display Order",
-            ["VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.MoveUp"] = "👇",
-            ["VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.MoveDown"] = "👆",
+            ["VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.MoveUp"] = "Down", //👇
+            ["VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.MoveDown"] = "Up", //👆
             ["VIU.Plugin.SolrSearch.Admin.Setting.HeroProducts.Table.AddNew"] = "Add new product",
             ["VIU.Plugin.SolrSearch.Admin.Setting.IncludeManufacturersInFilter"] = "Include manufacturers in filter",
             ["VIU.Plugin.SolrSearch.Admin.Setting.IncludeManufacturersInFilter.Hint"] = "Include manufacturers in filter",

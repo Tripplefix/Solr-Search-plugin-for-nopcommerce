@@ -23,6 +23,10 @@ namespace VIU.Plugin.SolrSearch.Infrastructure
             endpointRouteBuilder.MapControllerRoute("SolrSearch",
                 $"{lang}/search",
                 new { controller = "SolrSearch", action = "SearchProducts" });
+            
+            endpointRouteBuilder.MapControllerRoute("SearchProductsUpdate",
+                "/search-update",
+                new { controller = "SolrSearch", action = "SearchProductsUpdate" });
 
             //autocomplete search term (AJAX)
             endpointRouteBuilder.MapControllerRoute(name: "ProductSearchAutoComplete", 
