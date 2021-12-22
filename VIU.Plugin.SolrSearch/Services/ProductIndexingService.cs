@@ -32,7 +32,6 @@ namespace VIU.Plugin.SolrSearch.Services
         private readonly ILanguageService _languageService;
         private readonly ILocalizedEntityService _localizedEntityService;
         private readonly ILogger _logger;
-        private readonly IProductService _productService;
         private readonly IManufacturerService _manufacturerService;
         private readonly IEventPublisher _eventPublisher;
 
@@ -50,19 +49,19 @@ namespace VIU.Plugin.SolrSearch.Services
 	        _languageService = languageService;
 	        _localizedEntityService = localizedEntityService;
 	        _logger = logger;
-	        _productService = productService;
 	        _manufacturerService = manufacturerService;
 	        _eventPublisher = eventPublisher;
         }
 
-        public async Task<string> ReindexAllProducts()
+        public async Task<string> ReindexAllProducts(IList<Product> products)
         {
-            var selectedProducts = await _productService.SearchProductsAsync(visibleIndividuallyOnly: true);
 
-            var message = "Solr Product Indexing Service: found " + selectedProducts.Count + " Products";
+            var message = "Solr Product Indexing Service: found " + products.Count + " Products";
             await _logger.InformationAsync(message);
 
-            foreach (var product in selectedProducts)
+            ClearIndex();
+            
+            foreach (var product in products)
             {
                 var psd = await ConvertProductToSolrDocument(product);
 
@@ -97,20 +96,10 @@ namespace VIU.Plugin.SolrSearch.Services
             return message;
         }
 
-        public void Clear()
+        public void ClearIndex()
         {
             _solrOperations.Delete(new SolrQuery("*:*"));
             _solrOperations.Commit();
-        }
-
-        public async Task<Task> ReindexAllProductsTask()
-        {
-            Clear();
-            var info = await ReindexAllProducts();
-            
-            await _logger.InformationAsync("Solr search: automatic reindexing of products: " + info);
-            
-            return Task.CompletedTask;
         }
 
         private async Task<ProductSolrDocument> ConvertProductToSolrDocument(Product product)

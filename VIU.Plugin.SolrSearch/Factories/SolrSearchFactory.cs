@@ -50,7 +50,7 @@ namespace VIU.Plugin.SolrSearch.Factories
 			_productService = productService;
 		}
 
-		public async Task<ProductSolrResultModel> PrepareSearchModel(ProductSolrResultModel model)
+		public async Task<ProductSolrResultModel> PrepareSearchModel(ProductSolrResultModel model, bool highlightResults = false)
 		{
 			if (model == null)
 			{
@@ -184,7 +184,7 @@ namespace VIU.Plugin.SolrSearch.Factories
 				.Where(productFacet => productFacet.FacetValues.Any(facetValue => facetValue.OptionProductCount > 0))
 				.ToListAsync();
 
-			if (_viuSolrSearchSettings.HighlightingEnabled)
+			if (_viuSolrSearchSettings.HighlightingEnabled && highlightResults)
 			{
 				foreach (var product in model.Products)
 				{
@@ -286,19 +286,19 @@ namespace VIU.Plugin.SolrSearch.Factories
 			};
 
 			//price
-			if (_viuSolrSearchSettings.PreparePriceModel)
-			{
+			//if (_viuSolrSearchSettings.PreparePriceModel)
+			//{
 				model.ProductPrice = new ProductOverviewModel.ProductPriceModel
 				{
 					DisableBuyButton = coreProduct.DisableBuyButton,
 					DisableWishlistButton = coreProduct.DisableWishlistButton,
 					DisableAddToCompareListButton = coreProduct.DisableAddToCompareListButton
 				};
-			}
+			//}
 
 			//picture
-			if (_viuSolrSearchSettings.PreparePictureModel)
-			{
+			//if (_viuSolrSearchSettings.PreparePictureModel)
+			//{
 				model.DefaultPictureModel = new PictureModel
 				{
 					ThumbImageUrl = coreProduct.ThumbImageUrl,
@@ -307,7 +307,7 @@ namespace VIU.Plugin.SolrSearch.Factories
 					//AlternateText = coreProduct.ImageAltText, TODO: implement
 					//Title = coreProduct.ImageAltText TODO: implement
 				};			
-			}
+			//}
 
 			//specs 
 			if (_viuSolrSearchSettings.PrepareSpecificationAttributes)
@@ -324,10 +324,10 @@ namespace VIU.Plugin.SolrSearch.Factories
 			switch (facetKey)
 			{
 				case ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + ProductSolrDocument.SOLRFIELD_ALLCATEGORIES:
-					return await _localizationService.GetResourceAsync("filtering.categoryfilteredlabel", languageId);
+					return await _localizationService.GetResourceAsync("search.category", languageId);
 				
 				case ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION + ProductSolrDocument.SOLRFIELD_ALLMANUFACTURERS:
-					return await _localizationService.GetResourceAsync("filtering.manufacturersfilteredlabel", languageId);
+					return await _localizationService.GetResourceAsync("search.manufacturer", languageId);
 			}
 
 			var facetIdString = facetKey.Replace(ProductSolrDocument.SOLRFIELD_MULITVALUETEXT_EXTENSION, string.Empty).Replace("SA", string.Empty);

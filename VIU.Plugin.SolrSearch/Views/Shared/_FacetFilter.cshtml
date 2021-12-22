@@ -1,3 +1,37 @@
 ﻿@model VIU.Plugin.SolrSearch.Models.ProductSolrResultModel
 
-<p>default filter</p>
+@if (Model.ProductFacets.Any())
+{
+    var hasFilterApplied = !string.IsNullOrWhiteSpace(Model.Facets);
+
+    <div class="search-input">
+        <div class="row">
+            @foreach (var facet in Model.ProductFacets)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="form-group">
+                        <select id="selectpicker-@facet.FacetName"
+                                class="selectpicker form-control search-facet"
+                                multiple data-live-search="true"
+                                title="@facet.FacetDisplayName"
+                                data-facet-name="@facet.FacetName"
+                                data-selected-text-format="count"
+                                data-size="5">
+                            @foreach (var option in facet.FacetValues)
+                            {
+                                var facetDisabled = option.OptionProductCount <= 0;
+                                <option
+                                    data-subtext="@option.OptionProductCount"
+                                    value="@option.OptionName"
+                                    @(option.FilterActive ? " selected" : "")
+                                    @(facetDisabled ? " disabled" : "")>
+                                    @option.OptionDisplayName
+                                </option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}

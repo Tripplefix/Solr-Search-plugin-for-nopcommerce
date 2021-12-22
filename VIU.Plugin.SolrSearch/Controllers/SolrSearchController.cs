@@ -4,6 +4,7 @@ using Nop.Services.Logging;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Nop.Web.Framework.Mvc.Filters;
 using VIU.Plugin.SolrSearch.Factories;
 using VIU.Plugin.SolrSearch.Models;
 
@@ -56,6 +57,26 @@ namespace VIU.Plugin.SolrSearch.Controllers
             model = await _solrSearchFactory.PrepareSearchModel(model);
             
             return View(model);
+        }
+
+        [HttpGet]
+        [CheckLanguageSeoCode(true)]
+        public async Task<ActionResult> SearchProductsUpdate(ProductSolrResultModel model)
+        {
+            model ??= new ProductSolrResultModel();
+            model = await _solrSearchFactory.PrepareSearchModel(model);
+            
+        	return PartialView("_ProductsInGridOrLines", model);
+        }
+        
+        [HttpGet]
+        [CheckLanguageSeoCode(true)]
+        public async Task<ActionResult> SearchFiltersUpdate(ProductSolrResultModel model)
+        {
+            model ??= new ProductSolrResultModel();
+            model = await _solrSearchFactory.PrepareSearchModel(model);
+    
+            return PartialView("_FacetFilter", model);
         }
 
         [HttpGet]

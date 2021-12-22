@@ -20,6 +20,7 @@ using Nop.Web.Framework.Models.Extensions;
 using Nop.Web.Framework.Mvc;
 using Nop.Web.Framework.Mvc.Filters;
 using VIU.Plugin.SolrSearch.Areas.Admin.Models;
+using VIU.Plugin.SolrSearch.Infrastructure;
 using VIU.Plugin.SolrSearch.Settings;
 
 namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
@@ -51,10 +52,10 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
         [AuthorizeAdmin]
         public async Task<IActionResult> Configure()
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.AccessAdminPanel))
-            {
-                return AccessDeniedView();
-            }
+	        if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
+	        {
+		        return AccessDeniedView();
+	        }
             
             var viuSolrSearchSettings = await _settingService.LoadSettingAsync<ViuSolrSearchSettings>();
             var model = viuSolrSearchSettings.ToSettingsModel<ViuSolrSearchSettingsModel>();
@@ -80,7 +81,7 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
         [AuthorizeAdmin]
         public async Task<IActionResult> Configure(ViuSolrSearchSettingsModel model)
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManageWidgets))
+            if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
             {
                 return AccessDeniedView();
             }
@@ -109,7 +110,7 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
         [HttpPost]
         public virtual async Task<IActionResult> ProductList(ProductSearchModel searchModel)
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManageProducts))
+            if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
                 return await AccessDeniedDataTablesJson();
             
             var heroProductIds = (await GetHeroProductIds()).ToArray();
@@ -133,7 +134,7 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
 
         public virtual async Task<IActionResult> ProductDelete(int productId)
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManageProducts))
+            if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
                 return AccessDeniedView();
             
             var heroProductIds = await GetHeroProductIds();
@@ -145,7 +146,7 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
 
         public virtual async Task<IActionResult> ProductAddPopup()
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManageDiscounts))
+            if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
                 return AccessDeniedView();
 
             var model = new AddProductsToHeroProductsSearchModel();
@@ -158,7 +159,7 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
         [HttpPost]
         public virtual async Task<IActionResult> ProductAddPopupList(AddProductsToHeroProductsSearchModel searchModel)
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManageDiscounts))
+            if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
                 return await AccessDeniedDataTablesJson();
 
             //prepare model
@@ -188,7 +189,7 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
         [FormValueRequired("save")]
         public virtual async Task<IActionResult> ProductAddPopup(AddProductToHeroProductsModel model)
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManageProducts))
+            if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
                 return AccessDeniedView();
             
             var heroProductIds = await GetHeroProductIds();
@@ -203,7 +204,7 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
         [HttpPost]
         public virtual async Task<IActionResult> MoveHeroProductUp(int id)
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManageProducts))
+            if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
                 return AccessDeniedView();
             
             var heroProductIds = await GetHeroProductIds();
@@ -232,7 +233,7 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
         [HttpPost]
         public virtual async Task<IActionResult> MoveHeroProductDown(int id)
         {
-            if (!await _permissionService.AuthorizeAsync(StandardPermissionProvider.ManageProducts))
+            if (!await _permissionService.AuthorizeAsync(SolrPermissionProvider.ManageSearch))
                 return AccessDeniedView();
             
             var heroProductIds = await GetHeroProductIds();

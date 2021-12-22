@@ -1,0 +1,28 @@
+﻿@model ProductSolrResultModel
+
+@if (!string.IsNullOrEmpty(Model.Warning))
+{
+    <div class="warning">
+        @Model.Warning
+    </div>
+}
+@if (!Model.NoResults && Model.Products.Any())
+{
+                        @* <div class="@(Model.ViewMode == "list" ? "product-list" : "product-grid")"> *@
+    <div class="product-grid" data-prices-async data-prices-async-url="@(Url.Action("PricesJson", "SolrSearch"))">
+        <div class="item-grid">
+            @foreach (var product in Model.Products)
+            {
+                <div class="item-box">
+                    @await Html.PartialAsync("_ProductBox", product)
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="no-result">
+        @T("Search.NoResultsText")
+    </div>
+}

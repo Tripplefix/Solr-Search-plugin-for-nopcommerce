@@ -58,7 +58,7 @@ namespace VIU.Plugin.SolrSearch.Controllers
 				var productNumber = _catalogSettings.ProductSearchAutoCompleteNumberOfProducts > 0 ?
 					_catalogSettings.ProductSearchAutoCompleteNumberOfProducts : 10;  
 
-				var productResult = (await _solrSearchFactory.PrepareSearchModel(searchModel)).Products;
+				var productResult = (await _solrSearchFactory.PrepareSearchModel(searchModel, true)).Products;
 				
 				var productResultJson = (productResult.Take(productNumber)
 						.Select(p => new

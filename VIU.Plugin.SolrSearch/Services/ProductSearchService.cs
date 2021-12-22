@@ -27,7 +27,7 @@ namespace VIU.Plugin.SolrSearch.Services
             _eventPublisher = eventPublisher;
         }
 
-        public async Task<SolrQueryResults<ProductSolrDocument>> Search(string q, string languageKey = null, IEnumerable<KeyValuePair<string, List<string>>> facets = null, List<string> returnFacets = null)
+        public async Task<SolrQueryResults<ProductSolrDocument>> Search(string q, string languageKey = null, IEnumerable<KeyValuePair<string, List<string>>> filterFacets = null, List<string> returnFacets = null)
         {
 
             if (string.IsNullOrWhiteSpace(q))
@@ -41,11 +41,11 @@ namespace VIU.Plugin.SolrSearch.Services
             }
 
             //facets
-            facets ??= new List<KeyValuePair<string, List<string>>>();
+            filterFacets ??= new List<KeyValuePair<string, List<string>>>();
             
             var filter = new List<ISolrQuery>();
             
-            foreach (var (facetName, facetOptions) in facets)
+            foreach (var (facetName, facetOptions) in filterFacets)
             {
                 var facetFilter = 
                     new LocalParams { { "tag", facetName }, { "mincount", "1" } } +

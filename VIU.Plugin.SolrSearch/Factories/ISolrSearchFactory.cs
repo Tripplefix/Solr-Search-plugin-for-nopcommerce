@@ -5,6 +5,6 @@ namespace VIU.Plugin.SolrSearch.Factories
 {
 	public interface ISolrSearchFactory
 	{
-		Task<ProductSolrResultModel> PrepareSearchModel(ProductSolrResultModel model);
+		Task<ProductSolrResultModel> PrepareSearchModel(ProductSolrResultModel model, bool highlightResults = false);
 	}
 }

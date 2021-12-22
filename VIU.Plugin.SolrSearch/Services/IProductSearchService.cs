@@ -8,6 +8,6 @@ namespace VIU.Plugin.SolrSearch.Services
     public interface IProductSearchService
     {
         Task<SolrQueryResults<ProductSolrDocument>> Search(string q, string languageKey = null,
-            IEnumerable<KeyValuePair<string, List<string>>> facets = null, List<string> returnfacets = null);
+            IEnumerable<KeyValuePair<string, List<string>>> filterFacets = null, List<string> returnfacets = null);
     }
 }
