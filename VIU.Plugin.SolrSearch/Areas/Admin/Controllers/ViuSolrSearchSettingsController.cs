@@ -4,9 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Services.Catalog;
-using Nop.Core;
 using Nop.Core.Caching;
-using Nop.Core.Domain.Catalog;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Messages;
@@ -114,8 +112,6 @@ namespace VIU.Plugin.SolrSearch.Areas.Admin.Controllers
                 return await AccessDeniedDataTablesJson();
             
             var heroProductIds = (await GetHeroProductIds()).ToArray();
-
-            //var heroProducts = new PagedList<Product>(await _productService.GetProductsByIdsAsync(heroProductIds), searchModel.Page - 1, searchModel.PageSize);
 
             var heroProducts = (await _productService.GetProductsByIdsAsync(heroProductIds)).ToPagedList(searchModel);
             

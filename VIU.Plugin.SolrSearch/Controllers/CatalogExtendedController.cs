@@ -73,59 +73,6 @@ namespace VIU.Plugin.SolrSearch.Controllers
 						}))
 					.ToList();
 				
-				//cms 
-				
-				/*
-				JArray kontentResult = null;
-				var totalBlogsCount = 0;
-				var storeLocation = _webHelper.GetStoreLocation();
-				var url = $"{storeLocation}{(!storeLocation.EndsWith("/") ? "/" : string.Empty)}kontentsearch/blogs?" +
-				          $"query={term}&" +
-				          $"pageSize={_catalogSettings.ProductSearchAutoCompleteNumberOfProducts}&" +
-				          $"language={(await _workContext.GetWorkingLanguageAsync()).UniqueSeoCode}";
-				var response = await _httpClient.GetAsync(url);
-				
-				if (response.IsSuccessStatusCode)
-				{
-					var responseString = await response.Content.ReadAsStringAsync();
-					
-					dynamic kontentResultRaw = JsonConvert.DeserializeObject(responseString);
-
-					totalBlogsCount = kontentResultRaw?.TotalResults;
-					kontentResult = kontentResultRaw?.Results as JArray;
-				}
-				else
-				{
-					await _logger.ErrorAsync($"SearchTermAutoComplete (CMS): There is a problem with the kontent search plugin. Is it installed and running? - response code was {response.StatusCode}");
-				}
-				
-				if(kontentResult == null) return Json(productResultJson);
-				
-				var kontentResultJson = (kontentResult.Children()
-						.Take(productNumber)
-						.Select(k =>
-						{
-							var label = (string) k.Children<JProperty>().FirstOrDefault(j => j.Name == "Title") ?? string.Empty;
-
-							var indexOfTerm = label.IndexOf(term, StringComparison.InvariantCultureIgnoreCase);
-							var termToHighlight = indexOfTerm >= 0 ? label.Substring(indexOfTerm, term.Length) : string.Empty;
-							
-							return new
-							{
-								type = "blog",
-								label = label.Replace(term, $@"<b>{termToHighlight}</b>", StringComparison.InvariantCultureIgnoreCase),
-								producturl = Url.RouteUrl("KontentBlog", new { SeName = (string)k.Children<JProperty>().FirstOrDefault(j => j.Name == "SeName") }), //$"{storeLocation}{(!storeLocation.EndsWith("/") ? "/" : string.Empty)}{(string) k.Children<JProperty>().FirstOrDefault(j => j.Name == "Url")}",
-								productpictureurl = (string) k.Children<JProperty>().FirstOrDefault(j => j.Name == "PreviewImage"),
-								totalcountblogs = totalBlogsCount,
-								totalcountproducts = 0,
-								showlinktoresultsearch = showLinkToResultSearch
-							};
-						}))
-					.ToList();
-
-				var resultJson = productResultJson.Concat(kontentResultJson).ToList();
-				*/
-				
 				return Json(productResultJson);
 			}
 			catch (Exception e)

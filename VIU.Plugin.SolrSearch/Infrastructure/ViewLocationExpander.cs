@@ -6,13 +6,10 @@ namespace VIU.Plugin.SolrSearch.Infrastructure
 {
     public class ViewLocationExpander : IViewLocationExpander
     {
+	    // todo: support some popular themes
         private readonly string[] _supportedThemes =
         {
-            "Molicare",
-            "Betriebsapotheke",
-            "Sterillium",
-            "Dermaplast",
-            "Venture" // legacy betriebsapotheke theme
+            "Venture"
         };
         
         private const string THEME_KEY = "nop.themename";
