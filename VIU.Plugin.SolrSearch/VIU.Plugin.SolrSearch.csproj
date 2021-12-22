@@ -50,6 +50,10 @@
 		<PackageReference Include="SolrNet.Microsoft.DependencyInjection" Version="1.0.19" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Themes" />
+	</ItemGroup>
+
 	<!-- This target execute after "Build" target -->
     <Target Name="NopTarget" AfterTargets="Build">
         <!-- Delete unnecessary libraries from plugins path -->
