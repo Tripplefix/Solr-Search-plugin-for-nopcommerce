@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+		<TargetFramework>net5.0</TargetFramework>
+        <Copyright>Copyright © Rolf Isler</Copyright>
+        <Authors>Rolf Isler</Authors>
+        <OutputPath>..\..\Nop 4.4\Presentation\Nop.Web\Plugins\Nop.Plugin.SolrSearch</OutputPath>
+        <OutDir>$(OutputPath)</OutDir>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+	<ItemGroup>
+		<ClearPluginAssemblies Include="$(MSBuildProjectDirectory)\..\..\Nop 4.4\Build\ClearPluginAssemblies.proj" />
+        <ProjectReference Include="..\..\Nop 4.4\Libraries\Nop.Services\Nop.Services.csproj" />
+        <ProjectReference Include="..\..\Nop 4.4\Libraries\Nop.Core\Nop.Core.csproj" />
+        <ProjectReference Include="..\..\Nop 4.4\Presentation\Nop.Web.Framework\Nop.Web.Framework.csproj" />
+        <ProjectReference Include="..\..\Nop 4.4\Presentation\Nop.Web\Nop.Web.csproj" />
+    </ItemGroup>
+
+	<ItemGroup>
+		<Content Include="Themes\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+        <Content Include="Views\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Include="Content\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Include="Areas\Admin\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Update="Views\Shared\Components\SearchBox\Default.cshtml">
+          <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+          <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="plugin.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="logo.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="SolrNet.Autofac" Version="1.0.19" />
+		<PackageReference Include="SolrNet.Microsoft.DependencyInjection" Version="1.0.19" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Themes" />
+	</ItemGroup>
+
+	<!-- This target execute after "Build" target -->
+    <Target Name="NopTarget" AfterTargets="Build">
+        <!-- Delete unnecessary libraries from plugins path -->
+        <MSBuild Projects="@(ClearPluginAssemblies)" Properties="PluginPath=$(MSBuildProjectDirectory)\$(OutDir)" Targets="NopClear" />
+    </Target>
+</Project>

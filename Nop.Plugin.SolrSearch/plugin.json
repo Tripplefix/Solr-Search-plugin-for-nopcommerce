@@ -1,0 +1,11 @@
+﻿{
+  "Group": "Search",
+  "FriendlyName": "Solr Search",
+  "SystemName": "Nop.Plugin.SolrSearch",
+  "Version": "0.1",
+  "SupportedVersions": [ "4.40" ],
+  "Author": "Rolf Isler",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.SolrSearch.dll",
+  "Description": "Adds Solr Search to NopCommerce "
+}

@@ -1,0 +1,109 @@
+﻿@using Nop.Services.Common
+@using Nop.Core
+@model SolrSearchSettingsModel
+@inject IGenericAttributeService _genericAttributeService
+@inject IWorkContext _workContext
+@{
+    ViewBag.PageTitle = T("Nop.Plugin.SolrSearch.Admin.Settings.Title").Text;
+    
+    Layout = "_AdminLayout";
+
+    Html.SetActiveMenuItemSystemName("Nop.Plugin.SolrSearch.GeneralSettings");
+}
+
+@{
+    const string hideHideSolrSettingsBlockAttributeName = "SolrSearch.HideSolrSettingsBlock";
+    var hideSolrSettingsBlock = await _genericAttributeService.GetAttributeAsync<bool>(await _workContext.GetCurrentCustomerAsync(), hideHideSolrSettingsBlockAttributeName);
+
+    const string hideHideBoostingAttributeName = "SolrSearch.HideBoostingBlock";
+    var hideBoostingBlock = await _genericAttributeService.GetAttributeAsync<bool>(await _workContext.GetCurrentCustomerAsync(), hideHideBoostingAttributeName);
+    
+    const string hideHideHeroProductsBlockAttributeName = "SolrSearch.HideHeroProductsBlock";
+    var hideHeroProductsBlock = await _genericAttributeService.GetAttributeAsync<bool>(await _workContext.GetCurrentCustomerAsync(), hideHideHeroProductsBlockAttributeName);
+}
+
+<form asp-controller="SolrSearchSettings" asp-action="Configure" method="post" id="hero-products-form">
+    <div class="content-header clearfix">
+        <h1 class="float-left">
+            @T("Nop.Plugin.SolrSearch.Admin.Settings.Title")
+        </h1>
+        <div class="float-right">
+            <button type="submit" name="save" class="btn btn-primary">
+                <i class="far fa-save"></i>
+                @T("Admin.Common.Save")
+            </button>
+        </div>
+    </div>
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="form-horizontal">
+                @await Component.InvokeAsync("StoreScopeConfiguration")
+                @await Component.InvokeAsync("SettingMode")
+            
+                    <nop-cards id="product-panels">
+                        <nop-card asp-name="tab-solrsettings" 
+                                  asp-icon="fas fa-cog" 
+                                  asp-title="@T("Nop.Plugin.SolrSearch.Admin.TabTitle.SolrSettings")"
+                                  asp-hide-block-attribute-name="@hideHideSolrSettingsBlockAttributeName"
+                                  asp-hide="@hideSolrSettingsBlock"
+                                  asp-advanced="true">@await Html.PartialAsync("_Configure.SolrSettings", Model)</nop-card>
+                    
+                        <nop-card asp-name="tab-boosting" 
+                                  asp-icon="fas fa-fighter-jet" 
+                                  asp-title="@T("Nop.Plugin.SolrSearch.Admin.TabTitle.Boosting")"
+                                  asp-hide-block-attribute-name="@hideHideBoostingAttributeName"
+                                  asp-hide="@hideBoostingBlock"
+                                  asp-advanced="true">@await Html.PartialAsync("_Configure.Boosting", Model)</nop-card>
+                        
+                        <nop-card asp-name="tab-heroproducts" 
+                                  asp-icon="fas fa-chevron-up" 
+                                  asp-title="@T("Nop.Plugin.SolrSearch.Admin.TabTitle.HeroProducts")"
+                                  asp-hide-block-attribute-name="@hideHideHeroProductsBlockAttributeName"
+                                  asp-hide="@hideHeroProductsBlock"
+                                  asp-advanced="false">@await Html.PartialAsync("_Configure.HeroProducts", Model)</nop-card>
+                    
+                    @await Component.InvokeAsync("AdminWidget", new { widgetZone = "solr_settings_after", additionalData = Model })
+            </nop-cards>
+            </div>
+        </div>
+    </section>
+    
+    <script>
+        $(document).ready(function () {
+            $("#@Html.IdFor(model => model.WildcardQueryEnabled)").click(toggleWildcardQuerySettings);
+            $("#@Html.IdFor(model => model.FuzzyQueryEnabled)").click(toggleFuzzyQuerySettings);
+            $("#@Html.IdFor(model => model.PhraseQueryEnabled)").click(togglePhraseQuerySettings);
+            toggleWildcardQuerySettings();
+            toggleFuzzyQuerySettings();
+            togglePhraseQuerySettings();
+        });
+
+        function toggleWildcardQuerySettings() {
+            if ($('#@Html.IdFor(model => model.WildcardQueryEnabled)').is(':checked')) {
+                $("#pnlWildcardQueryBoost, #pnlWildcardQueryMinLength, #pnlWildcardQuerySelectedType").show();
+            }
+            else {
+                $("#pnlWildcardQueryBoost, #pnlWildcardQueryMinLength, #pnlWildcardQuerySelectedType").hide();
+            }
+        }
+
+        function toggleFuzzyQuerySettings() {
+            if ($('#@Html.IdFor(model => model.FuzzyQueryEnabled)').is(':checked')) {
+                $("#pnlFuzzyQueryBoost, #pnlFuzzyQueryFuzziness, #pnlFuzzyQueryMinLength").show();
+            }
+            else {
+                $("#pnlFuzzyQueryBoost, #pnlFuzzyQueryFuzziness, #pnlFuzzyQueryMinLength").hide();
+            }
+        }
+
+        function togglePhraseQuerySettings() {
+            if ($('#@Html.IdFor(model => model.PhraseQueryEnabled)').is(':checked')) {
+                $("#pnlPhraseQueryBoost, #pnlPhraseQueryProximity").show();
+            }
+            else {
+                $("#pnlPhraseQueryBoost, #pnlPhraseQueryProximity").hide();
+            }
+        }
+    </script>
+</form>

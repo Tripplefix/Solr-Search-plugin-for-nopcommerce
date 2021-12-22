@@ -1,0 +1,144 @@
+﻿@model SolrSearchSettingsModel
+
+<div class="card-body">
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="ProductSkuQueryBoost"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="ProductSkuQueryBoost"/>
+            <span asp-validation-for="ProductSkuQueryBoost"></span>
+        </div>
+    </div>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="ProductGtinQueryBoost"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="ProductGtinQueryBoost"/>
+            <span asp-validation-for="ProductGtinQueryBoost"></span>
+        </div>
+    </div>
+    <hr/>
+    <p>@T("Nop.Plugin.SolrSearch.Admin.BoostingNameFieldInfo")</p>
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="ProductNameQueryBoost"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="ProductNameQueryBoost"/>
+            <span asp-validation-for="ProductNameQueryBoost"></span>
+        </div>
+    </div>
+
+    @* Wildcard Query Config *@
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="WildcardQueryEnabled"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="WildcardQueryEnabled"/>
+            <span asp-validation-for="WildcardQueryEnabled"></span>
+        </div>
+    </div>
+    <nop-nested-setting asp-for="WildcardQueryEnabled">
+        <div class="form-group row advanced-setting" id="pnlWildcardQueryBoost">
+            <div class="col-md-3">
+                <nop-label asp-for="WildcardQueryBoost"/>
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="WildcardQueryBoost"/>
+                <span asp-validation-for="WildcardQueryBoost"></span>
+            </div>
+        </div>
+        <div class="form-group row advanced-setting" id="pnlWildcardQueryMinLength">
+            <div class="col-md-3">
+                <nop-label asp-for="WildcardQueryMinLength"/>
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="WildcardQueryMinLength"/>
+                <span asp-validation-for="WildcardQueryMinLength"></span>
+            </div>
+        </div>
+        <div class="form-group row advanced-setting" id="pnlWildcardQuerySelectedType">
+            <div class="col-md-3">
+                <nop-label asp-for="WildcardQuerySelectedType"/>
+            </div>
+            <div class="col-md-9">
+                <nop-select asp-for="WildcardQuerySelectedType" asp-items="Model.AvailableWildcardQueryTypes"/>
+                <span asp-validation-for="WildcardQuerySelectedType"></span>
+            </div>
+        </div>
+    </nop-nested-setting>
+    
+    @* Fuzzy Query Config *@
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="FuzzyQueryEnabled"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="FuzzyQueryEnabled"/>
+            <span asp-validation-for="FuzzyQueryEnabled"></span>
+        </div>
+    </div>
+    <nop-nested-setting asp-for="FuzzyQueryEnabled">
+        <div class="form-group row advanced-setting" id="pnlFuzzyQueryBoost">
+            <div class="col-md-3">
+                <nop-label asp-for="FuzzyQueryBoost"/>
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="FuzzyQueryBoost"/>
+                <span asp-validation-for="FuzzyQueryBoost"></span>
+            </div>
+        </div>
+        <div class="form-group row advanced-setting" id="pnlFuzzyQueryFuzziness">
+            <div class="col-md-3">
+                <nop-label asp-for="FuzzyQueryFuzziness"/>
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="FuzzyQueryFuzziness"/>
+                <span asp-validation-for="FuzzyQueryFuzziness"></span>
+            </div>
+        </div>
+        <div class="form-group row advanced-setting" id="pnlFuzzyQueryMinLength">
+            <div class="col-md-3">
+                <nop-label asp-for="FuzzyQueryMinLength"/>
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="FuzzyQueryMinLength"/>
+                <span asp-validation-for="FuzzyQueryMinLength"></span>
+            </div>
+        </div>
+    </nop-nested-setting>
+
+    @* Phrase Query Config *@
+    <div class="form-group row">
+        <div class="col-md-3">
+            <nop-label asp-for="PhraseQueryEnabled"/>
+        </div>
+        <div class="col-md-9">
+            <nop-editor asp-for="PhraseQueryEnabled"/>
+            <span asp-validation-for="PhraseQueryEnabled"></span>
+        </div>
+    </div>
+    <nop-nested-setting asp-for="PhraseQueryEnabled">
+        <div class="form-group row advanced-setting" id="pnlPhraseQueryBoost">
+            <div class="col-md-3">
+                <nop-label asp-for="PhraseQueryBoost"/>
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="PhraseQueryBoost"/>
+                <span asp-validation-for="PhraseQueryBoost"></span>
+            </div>
+        </div>
+        <div class="form-group row advanced-setting" id="pnlPhraseQueryProximity">
+            <div class="col-md-3">
+                <nop-label asp-for="PhraseQueryProximity"/>
+            </div>
+            <div class="col-md-9">
+                <nop-editor asp-for="PhraseQueryProximity"/>
+                <span asp-validation-for="PhraseQueryProximity"></span>
+            </div>
+        </div>
+    </nop-nested-setting>
+</div>
